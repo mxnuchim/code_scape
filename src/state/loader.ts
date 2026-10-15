@@ -2,7 +2,9 @@ import { fetchRawFile, fetchRepoMeta, fetchTree } from "@/lib/github/client";
 import { repoPath, repoSlug } from "@/lib/github/parseRepoUrl";
 import { GitHubError, isAbortError, type RepoMeta, type RepoRef, type RepoSnapshot, type TreeEntry } from "@/lib/github/types";
 import { buildRepoModel } from "@/lib/analysis/buildModel";
-import { planTrace, traceImports } from "@/lib/analysis/imports/trace";
+import { planTrace, TRACE_FILE_CAP, TRACE_MAX_BYTES } from "@/lib/analysis/imports/trace";
+import { analyzeModel, isWorkspaceAnalysis, toDependencyGraph, type WorkspaceAnalysis } from "@/lib/analysis/workspace";
+import { initBrowserParsers } from "@/lib/analysis/code/browserParsers";
 import type { RepoModel } from "@/lib/analysis/types";
 import { buildCityLayout } from "@/lib/layout/cityLayout";
 import { resetCityState, useCity, type CityError } from "./store";
@@ -94,7 +96,7 @@ function toCityError(err: unknown, repo: RepoRef, defaultBranch?: string): CityE
 }
 
 /** Turn a snapshot into a model and layout, then hand them to the world. */
-async function buildCity(snapshot: RepoSnapshot, signal: AbortSignal, fromCache: boolean) {
+async function buildCity(snapshot: RepoSnapshot, signal: AbortSignal, fromCache: boolean, analysis?: WorkspaceAnalysis) {
   useCity.setState({ stage: "analysis" });
   await nextFrame();
   if (signal.aborted) return;
@@ -113,11 +115,18 @@ async function buildCity(snapshot: RepoSnapshot, signal: AbortSignal, fromCache:
     layout,
     fromCache,
     cityKey: s.cityKey + 1,
+    // A local analysis arrives complete from the server; GitHub cities analyse in the browser.
+    ...(analysis ? { analysis, trace: { status: "done" as const, graph: toDependencyGraph(analysis.index) } } : {}),
   }));
-  void startTrace(model, signal);
+  if (!analysis) void startAnalysis(model, snapshot, signal);
 }
 
-async function startTrace(model: RepoModel, signal: AbortSignal) {
+/**
+ * Read a bounded set of source files from GitHub and run the shared analysis
+ * engine on them in the browser: imports for the city, plus symbols, journeys
+ * and the onboarding guide.
+ */
+async function startAnalysis(model: RepoModel, snapshot: RepoSnapshot, signal: AbortSignal) {
   const plan = planTrace(model);
   if (plan.queue.length === 0) {
     useCity.setState({ trace: { status: "unsupported" } });
@@ -127,9 +136,12 @@ async function startTrace(model: RepoModel, signal: AbortSignal) {
   let lastUpdate = 0;
   useCity.setState({ trace: { status: "running", done: 0, total: plan.queue.length } });
   try {
-    const graph = await traceImports(model, {
+    // If the parser can't load, the engine falls back to import-only extraction.
+    await initBrowserParsers();
+    const analysis = await analyzeModel(model, snapshot, (path, s) => fetchRawFile(owner, repo, model.ref, path, s), {
       signal,
-      fetchText: (path, s) => fetchRawFile(owner, repo, model.ref, path, s),
+      cap: TRACE_FILE_CAP,
+      maxFileBytes: TRACE_MAX_BYTES,
       onProgress: ({ done, total }) => {
         const now = performance.now();
         if (done === total || now - lastUpdate > 120) {
@@ -138,7 +150,7 @@ async function startTrace(model: RepoModel, signal: AbortSignal) {
         }
       },
     });
-    if (!signal.aborted) useCity.setState({ trace: { status: "done", graph } });
+    if (!signal.aborted) useCity.setState({ trace: { status: "done", graph: toDependencyGraph(analysis.index) }, analysis });
   } catch (err) {
     if (signal.aborted || isAbortError(err)) return;
     useCity.setState({ trace: { status: "error", message: err instanceof Error ? err.message : "Tracing failed" } });
@@ -240,6 +252,37 @@ export async function loadBundledSnapshot(history: HistoryMode = "push") {
   }
 }
 
+/**
+ * The repository on this machine that the local viewer was started for
+ * (`codescape view` or open_in_codescape). The server analyses it with the
+ * same engine the MCP server uses.
+ */
+export async function loadLocalWorkspace(history: HistoryMode = "push") {
+  const repo = { owner: "local", repo: "workspace" };
+  const signal = begin(repo);
+  updateHistory(`/local${typeof window !== "undefined" ? window.location.search : ""}`, history);
+  try {
+    useCity.setState({ stage: "metadata" });
+    const res = await fetch("/api/workspace", { signal, cache: "no-store" });
+    const body: unknown = await res.json().catch(() => null);
+    if (!res.ok) {
+      const message = (body as { error?: string } | null)?.error ?? `The local server answered ${res.status}.`;
+      useCity.setState({ phase: "error", error: { kind: "local-unavailable", repo, message, at: Date.now() } });
+      return;
+    }
+    if (!isWorkspaceAnalysis(body)) throw new Error("The local server returned an analysis this version of CodeScape can't read.");
+    const name = body.snapshot.meta.repo;
+    useCity.setState({ repo: { owner: "local", repo: name }, stage: "tree" });
+    await buildCity(body.snapshot, signal, false, body);
+  } catch (err) {
+    if (signal.aborted || isAbortError(err)) return;
+    useCity.setState({
+      phase: "error",
+      error: { kind: "local-unavailable", repo, message: err instanceof Error ? err.message : String(err), at: Date.now() },
+    });
+  }
+}
+
 export function goToLanding(history: HistoryMode = "push") {
   controller?.abort();
   controller = null;
@@ -257,6 +300,10 @@ export function goToLanding(history: HistoryMode = "push") {
 
 export function retryCurrent() {
   const { repo, error, model } = useCity.getState();
+  if (model?.source === "local" || error?.kind === "local-unavailable") {
+    void loadLocalWorkspace("none");
+    return;
+  }
   if (model?.source === "bundled-snapshot" || error?.kind === "snapshot-unavailable") {
     void loadBundledSnapshot("none");
     return;
@@ -271,5 +318,6 @@ export function cancelAll() {
 }
 
 export function describeRepo(ref: RepoRef) {
+  if (ref.owner === "local") return ref.repo;
   return ref.ref ? `${repoSlug(ref)} @ ${ref.ref}` : repoSlug(ref);
 }

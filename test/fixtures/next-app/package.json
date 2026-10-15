@@ -1,0 +1,5 @@
+{
+  "name": "orders-dashboard",
+  "scripts": { "dev": "next dev", "build": "next build" },
+  "dependencies": { "next": "16.0.0", "react": "19.0.0", "@prisma/client": "5.0.0" }
+}

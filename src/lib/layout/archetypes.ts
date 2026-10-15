@@ -84,7 +84,7 @@ export function blockHeight(fileCount: number): number {
 }
 
 export const ARCHETYPE_INFO: Record<Archetype, { name: string; meaning: string }> = {
-  tower: { name: "Office tower", meaning: "Source code. Height follows file size." },
+  tower: { name: "Office tower", meaning: "Source code. Height shows file size." },
   lab: { name: "Test lab", meaning: "Tests, specs, fixtures and snapshots." },
   silo: { name: "Water tower", meaning: "Configuration: manifests, tool configs, dotfiles." },
   factory: { name: "Workshop", meaning: "Build, CI and tooling: workflows, Dockerfiles, scripts." },

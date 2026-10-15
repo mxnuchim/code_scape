@@ -1,0 +1,27 @@
+name: Feature request
+description: Suggest a way CodeScape could help you understand code faster
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to understand or do?
+      description: Describe the situation and the question you couldn't answer quickly.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help?
+  - type: dropdown
+    id: language
+    attributes:
+      label: Is this about language support?
+      options:
+        - "No"
+        - Rust
+        - Java / Kotlin
+        - C#
+        - Ruby
+        - PHP
+        - Other (say which below)

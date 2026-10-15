@@ -187,7 +187,8 @@ export function FilterTray({ mobile = false }: { mobile?: boolean }) {
             )}
           </div>
           <p className="mt-4 text-[0.72rem] leading-relaxed text-ink-faint">
-            Height follows file size. Folders become districts and blocks. Click a district to isolate it.
+            Height shows file size on a log scale, comparable between buildings of the same shape. Folders become districts and blocks.
+            Select a district, then use Isolate to hide everything else.
           </p>
         </div>
       </motion.div>

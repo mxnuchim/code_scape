@@ -101,13 +101,13 @@ export function Landing() {
         exit={{ y: 16, opacity: 0, transition: { duration: 0.25 } }}
       >
         <div className="glass-strong rounded-xl p-4 sm:p-5">
-          <p className="eyebrow mb-2">Software architecture, rendered as a city</p>
+          <p className="eyebrow mb-2">Code understanding · architecture map</p>
           <h1 className="text-[24px] leading-[1.15] font-semibold tracking-[-0.02em] text-ink sm:text-[30px]">
-            Walk through any codebase.
+            Understand any codebase. Find your way around.
           </h1>
           <p className="mt-2 text-[13px] leading-relaxed text-ink-soft">
-            Paste a public GitHub repository. Folders become districts, files become buildings, and imports traced from the source become
-            transit lines. Everything is drawn from the real file tree.
+            Paste a public GitHub repository. Folders become districts and files become buildings. Imports and calls parsed from the source
+            become arcs, and code journeys follow a request from its entry point. Every claim links back to a file and line.
           </p>
 
           <form onSubmit={onSubmit} className="mt-4" noValidate>
@@ -121,6 +121,7 @@ export function Landing() {
                   ref={inputRef}
                   id="repo-url"
                   type="text"
+                  aria-label="GitHub repository URL"
                   inputMode="url"
                   autoComplete="off"
                   autoCapitalize="off"
@@ -149,7 +150,8 @@ export function Landing() {
                 </p>
               ) : (
                 <p id="repo-url-hint" className="text-[12px] text-ink-faint">
-                  Public repositories only. Pasting a link starts the build.
+                  Public repositories. For private or local code, run <code className="font-mono text-ink-soft">codescape view --root .</code> or use
+                  CodeScape from Claude Code.
                 </p>
               )}
             </div>
@@ -177,7 +179,7 @@ export function Landing() {
             </div>
           </div>
           <p className="mt-3 font-mono text-[10.5px] tracking-wide text-ink-faint uppercase">
-            Reads the file tree via GitHub&apos;s public API · repository code is never executed
+            GitHub&apos;s public API · code is never executed · the town behind this card is illustrative
           </p>
         </div>
       </motion.section>

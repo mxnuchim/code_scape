@@ -1,11 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import { IconFolder } from "./icons";
 
-/** The owner's GitHub avatar, falling back to a monogram tile. */
+/** The owner's GitHub avatar, falling back to a monogram tile. Local repositories never touch the network. */
 export function RepoAvatar({ owner, size = 32 }: { owner: string; size?: number }) {
   const [failed, setFailed] = useState(false);
   const style = { width: size, height: size };
+  if (owner === "local") {
+    return (
+      <span className="grid shrink-0 place-items-center rounded-md bg-white/10 text-ink-soft ring-1 ring-white/10" style={style} aria-hidden>
+        <IconFolder size={Math.round(size * 0.55)} />
+      </span>
+    );
+  }
   if (failed) {
     return (
       <span

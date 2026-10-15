@@ -110,6 +110,8 @@ export const WORLD = {
   select: "#f5a524",
   importsOut: "#f5a524",
   importsIn: "#3cc6b8",
+  /** Code journeys: a distinct hue so a journey never reads as an import arc. */
+  journey: "#9d8cff",
 } as const;
 
 /** Facade colours for the "Role" lens; also used in composition bars. */

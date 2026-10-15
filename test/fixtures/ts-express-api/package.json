@@ -1,0 +1,17 @@
+{
+  "name": "user-api",
+  "description": "A small HTTP API for managing users.",
+  "main": "src/server.ts",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "express": "^4.19.0",
+    "pg": "^8.11.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  }
+}

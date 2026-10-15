@@ -356,3 +356,35 @@ body {
     transition-duration: 1ms !important;
   }
 }
+
+/* Code journeys: numbered stops and package exits drawn over the city. */
+.journey-stop {
+  min-width: 1.5rem;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(20, 18, 38, 0.86);
+  border: 1px solid rgba(157, 140, 255, 0.55);
+  color: #d9d3ff;
+  font: 600 11px/1.4 var(--font-geist-mono), ui-monospace, monospace;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px -6px rgba(0, 0, 0, 0.6);
+}
+.journey-stop.is-current {
+  background: #9d8cff;
+  border-color: #c9c0ff;
+  color: #120f24;
+}
+.journey-stop.has-gap {
+  border-style: dashed;
+  border-color: rgba(245, 165, 36, 0.8);
+}
+.journey-exit {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(20, 18, 38, 0.8);
+  border: 1px dashed rgba(157, 140, 255, 0.6);
+  color: #cfc8ff;
+  font: 500 10.5px/1.4 var(--font-geist-mono), ui-monospace, monospace;
+  white-space: nowrap;
+}

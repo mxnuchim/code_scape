@@ -1,4 +1,4 @@
-import type { RepoMeta, SnapshotSource } from "../github/types";
+import type { RepoMeta, RepoOrigin, SnapshotSource } from "../github/types";
 
 export const CATEGORIES = [
   "source",
@@ -66,6 +66,8 @@ export interface ExclusionSummary {
   /** Excluded directories (outermost match) with file counts, largest first. */
   topDirs: { path: string; files: number; reason: string }[];
   submodules: string[];
+  /** Excluded folders that were skipped without being listed, so their files aren't counted. */
+  skippedDirs: { path: string; reason: string }[];
 }
 
 export interface AnalysisLimits {
@@ -82,6 +84,7 @@ export interface RepoModel {
   meta: RepoMeta;
   ref: string;
   source: SnapshotSource;
+  origin: RepoOrigin;
   fetchedAt: number;
   capturedAt?: string;
   root: DirNode;

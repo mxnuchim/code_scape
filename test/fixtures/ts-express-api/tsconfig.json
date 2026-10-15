@@ -1,0 +1,7 @@
+{
+  // Path alias used by the services.
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": { "@/*": ["src/*"] },
+  },
+}
