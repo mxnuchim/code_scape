@@ -4,6 +4,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import type { DependencyGraph } from "@/lib/analysis/imports/trace";
 import { TRACE_MAX_BYTES } from "@/lib/analysis/imports/trace";
 import { isParseable } from "@/lib/analysis/code/parser";
+import { PARSED_LANGUAGES_AND, PARSED_LANGUAGES_OR } from "@/lib/analysis/languages";
 import type { DirNode, FileNode, RepoModel } from "@/lib/analysis/types";
 import { sourceLink } from "@/lib/links";
 import type { LayoutResult } from "@/lib/layout/cityLayout";
@@ -108,7 +109,7 @@ function RelationList({ items, layout, tone }: { items: { id: string; files: num
 }
 
 function untracedReason(file: FileNode, graph: DependencyGraph): string {
-  if (!isParseable(file.path)) return "Imports are traced for JavaScript, TypeScript, Python and Go files.";
+  if (!isParseable(file.path)) return `Imports are traced for ${PARSED_LANGUAGES_AND} files.`;
   if (file.size > TRACE_MAX_BYTES) return `This file is larger than ${formatBytes(TRACE_MAX_BYTES)}, so it wasn't read.`;
   if (graph.failed.has(file.path)) return "We couldn't download this file to read its imports.";
   return `Only the first ${graph.cap} source files are read, and this one wasn't among them.`;
@@ -128,7 +129,7 @@ function Connections({ buildingId, files, trace, model, layout }: { buildingId: 
   if (trace.status === "unsupported") {
     return (
       <Section title="Connections">
-        <p className="text-[0.82rem] text-ink-soft">This repository has no JavaScript, TypeScript or Python files to trace, so no connections are known.</p>
+        <p className="text-[0.82rem] text-ink-soft">This repository has no {PARSED_LANGUAGES_OR} files to trace, so no connections are known.</p>
       </Section>
     );
   }

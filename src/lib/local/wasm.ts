@@ -15,6 +15,8 @@ const PACKAGE_FOR: Record<string, string> = {
   "tree-sitter-javascript.wasm": "tree-sitter-javascript",
   "tree-sitter-python.wasm": "tree-sitter-python",
   "tree-sitter-go.wasm": "tree-sitter-go",
+  "tree-sitter-rust.wasm": "tree-sitter-rust",
+  "tree-sitter-java.wasm": "tree-sitter-java",
 };
 
 function candidateDirs(file: string): string[] {

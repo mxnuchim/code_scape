@@ -7,7 +7,7 @@
  */
 import type { DirNode, RepoModel } from "../types";
 import { joinPath } from "../imports/resolve";
-import type { Basis, CodeIndex, Evidence } from "./types";
+import type { Basis, CodeIndex, CodeLanguage, Evidence } from "./types";
 
 export interface Technology {
   name: string;
@@ -68,7 +68,7 @@ export interface Overview {
 
 // ---- manifest inputs ---------------------------------------------------------
 
-const MANIFEST_FILES = /(^|\/)(package\.json|pyproject\.toml|requirements(-[\w]+)?\.txt|setup\.cfg|go\.mod|cargo\.toml|makefile|justfile)$/i;
+const MANIFEST_FILES = /(^|\/)(package\.json|pyproject\.toml|requirements(-[\w]+)?\.txt|setup\.cfg|go\.mod|cargo\.toml|pom\.xml|build\.gradle(\.kts)?|makefile|justfile)$/i;
 
 /** Files the overview needs to read (manifests at the root and in packages, plus the root README). */
 export function overviewInputs(model: RepoModel): string[] {
@@ -167,6 +167,77 @@ const GO_TECH: Record<string, [string, Technology["category"]]> = {
   "google.golang.org/grpc": ["gRPC", "framework"],
 };
 
+const RUST_TECH: Record<string, [string, Technology["category"]]> = {
+  axum: ["axum", "framework"],
+  "actix-web": ["Actix Web", "framework"],
+  rocket: ["Rocket", "framework"],
+  warp: ["warp", "framework"],
+  tonic: ["tonic (gRPC)", "framework"],
+  tokio: ["Tokio", "runtime"],
+  serde: ["Serde", "tooling"],
+  sqlx: ["SQLx", "data"],
+  diesel: ["Diesel", "data"],
+  "sea-orm": ["SeaORM", "data"],
+  redis: ["Redis client", "data"],
+  clap: ["clap", "tooling"],
+  reqwest: ["reqwest", "tooling"],
+  tracing: ["tracing", "tooling"],
+};
+
+/** Maven/Gradle artifact ids (exact, or a prefix ending in "-"). */
+const JAVA_TECH: [string, [string, Technology["category"]]][] = [
+  ["spring-boot-starter-web", ["Spring MVC", "framework"]],
+  ["spring-boot-starter-webmvc", ["Spring MVC", "framework"]],
+  ["spring-webmvc", ["Spring MVC", "framework"]],
+  ["spring-webflux", ["Spring WebFlux", "framework"]],
+  ["spring-boot-starter-thymeleaf", ["Thymeleaf", "ui"]],
+  ["spring-boot-starter-webflux", ["Spring WebFlux", "framework"]],
+  ["spring-boot-starter-data-jpa", ["Spring Data JPA", "data"]],
+  ["spring-boot-starter-jdbc", ["Spring JDBC", "data"]],
+  ["spring-boot-starter-security", ["Spring Security", "framework"]],
+  ["spring-boot-starter-test", ["Spring Boot Test", "testing"]],
+  ["spring-boot-", ["Spring Boot", "framework"]],
+  ["quarkus-", ["Quarkus", "framework"]],
+  ["micronaut-", ["Micronaut", "framework"]],
+  ["hibernate-core", ["Hibernate", "data"]],
+  ["postgresql", ["PostgreSQL driver", "data"]],
+  ["mysql-connector-j", ["MySQL driver", "data"]],
+  ["flyway-core", ["Flyway migrations", "data"]],
+  ["liquibase-core", ["Liquibase migrations", "data"]],
+  ["jackson-databind", ["Jackson", "tooling"]],
+  ["lombok", ["Lombok", "tooling"]],
+  ["junit-jupiter", ["JUnit 5", "testing"]],
+  ["junit", ["JUnit", "testing"]],
+  ["mockito-core", ["Mockito", "testing"]],
+];
+
+function javaTech(artifact: string): [string, Technology["category"]][] {
+  const out: [string, Technology["category"]][] = [];
+  for (const [id, def] of JAVA_TECH) if (artifact === id || (id.endsWith("-") && artifact.startsWith(id))) out.push(def);
+  return out;
+}
+
+/** Dependency names in Cargo.toml `[dependencies]`-style sections, with their offsets. */
+function cargoDependencies(text: string): { name: string; at: number }[] {
+  const out: { name: string; at: number }[] = [];
+  let section = "";
+  let offset = 0;
+  for (const line of text.split("\n")) {
+    const header = /^\s*\[\s*([^\]]+?)\s*\]/.exec(line);
+    if (header) {
+      section = header[1];
+      // `[dependencies.serde]` names the dependency in the header.
+      const inline = /^(?:workspace\.)?(?:dev-|build-)?dependencies\.([\w-]+)$/.exec(section);
+      if (inline) out.push({ name: inline[1], at: offset + line.indexOf(inline[1]) });
+    } else if (/^(?:workspace\.)?(?:dev-|build-)?dependencies$|^target\..+\.(?:dev-)?dependencies$/.test(section)) {
+      const m = /^\s*([\w-]+)\s*=/.exec(line);
+      if (m) out.push({ name: m[1], at: offset + line.indexOf(m[1]) });
+    }
+    offset += line.length + 1;
+  }
+  return out;
+}
+
 interface PackageJson {
   name?: string;
   description?: string;
@@ -191,6 +262,13 @@ function parseJson<T>(text: string): T | undefined {
 
 // ---- builder -----------------------------------------------------------------
 
+const MAIN_ENTRY_LABEL: Partial<Record<CodeLanguage, string>> = {
+  python: "`if __name__ == \"__main__\":` block",
+  go: "`func main` in package main",
+  rust: "`fn main` in a binary crate root",
+  java: "`public static void main` method",
+};
+
 export function buildOverview(model: RepoModel, index: CodeIndex, texts: ReadonlyMap<string, string>): Overview {
   const technologies = new Map<string, Technology>();
   const entryPoints: EntryPoint[] = [];
@@ -200,7 +278,7 @@ export function buildOverview(model: RepoModel, index: CodeIndex, texts: Readonl
     if (!technologies.has(def[0])) technologies.set(def[0], { name: def[0], category: def[1], basis: "fact", evidence });
   };
   const addEntry = (e: EntryPoint) => {
-    if (NON_PRODUCT_DIR.test(e.path) || model.filesByPath.get(e.path)?.category === "test") return;
+    if (isNonProductPath(e.path) || model.filesByPath.get(e.path)?.category === "test") return;
     if (!entryPoints.some((x) => x.path === e.path && x.kind === e.kind && x.symbol === e.symbol)) entryPoints.push(e);
   };
   const ev = (path: string, line: number): Evidence => ({ path, startLine: line, endLine: line });
@@ -208,7 +286,7 @@ export function buildOverview(model: RepoModel, index: CodeIndex, texts: Readonl
   let hasLibraryExport = false;
 
   for (const [path, text] of [...texts].sort(([a], [b]) => (a < b ? -1 : 1))) {
-    if (NON_PRODUCT_DIR.test(path)) continue;
+    if (isNonProductPath(path)) continue;
     const name = path.slice(path.lastIndexOf("/") + 1).toLowerCase();
     const dir = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
 
@@ -284,6 +362,75 @@ export function buildOverview(model: RepoModel, index: CodeIndex, texts: Readonl
       continue;
     }
 
+    if (name === "cargo.toml") {
+      if (!description && dir === "") {
+        const m = /^\s*description\s*=\s*"([^"]+)"/m.exec(text);
+        if (m) description = { text: m[1], basis: "fact", evidence: ev(path, lineOf(text, m[0].trim())) };
+      }
+      // A workspace's own crates depend on each other (axum-extra → axum); that isn't a technology choice.
+      const ownCrates = new Set((index.rustCrates ?? []).map((c) => c.name));
+      for (const dep of cargoDependencies(text)) {
+        if (ownCrates.has(dep.name.replace(/-/g, "_"))) continue;
+        const def = RUST_TECH[dep.name];
+        if (def) addTech(def, ev(path, lineOf(text, dep.at)));
+      }
+      const pkgName = /^\[package\][^[]*?^\s*name\s*=\s*"([^"]+)"/m.exec(text)?.[1];
+      const header = /^\[(package|workspace)\]/m.exec(text);
+      const at = ev(path, header ? lineOf(text, header.index) : 1);
+      const inWorkspace = dir !== "" && texts.get("Cargo.toml")?.match(/^\[workspace\]/m);
+      const flag = dir === "" || !pkgName ? "" : ` -p ${pkgName}`;
+      if (dir === "" || !inWorkspace) {
+        commands.push({ name: `${dir ? `${dir}: ` : ""}cargo build`, command: "cargo build", basis: "fact", evidence: at });
+        commands.push({ name: `${dir ? `${dir}: ` : ""}cargo test`, command: "cargo test", basis: "fact", evidence: at });
+      }
+      const crateBins = (index.rustCrates ?? []).find((c) => c.dir === dir)?.bins ?? [];
+      if (pkgName && crateBins.length) {
+        commands.push({ name: `cargo run${flag}`, command: `cargo run${flag}`, basis: "fact", evidence: at });
+      }
+      continue;
+    }
+
+    if (name === "pom.xml" || name === "build.gradle" || name === "build.gradle.kts") {
+      const maven = name === "pom.xml";
+      if (maven && !description && dir === "") {
+        const m = /<description>([^<]+)<\/description>/.exec(text);
+        if (m) description = { text: m[1].trim(), basis: "fact", evidence: ev(path, lineOf(text, m.index)) };
+      }
+      let springBoot: Evidence | undefined;
+      if (maven) {
+        // Only artifacts this project depends on; its own <artifactId> is not a dependency.
+        for (const block of text.matchAll(/<(dependency|plugin|parent)>[\s\S]*?<\/\1>/g)) {
+          const m = /<artifactId>\s*([\w.-]+)\s*<\/artifactId>/.exec(block[0]);
+          if (!m) continue;
+          const at = ev(path, lineOf(text, block.index! + m.index));
+          for (const def of javaTech(m[1])) addTech(def, at);
+          if (m[1] === "spring-boot-maven-plugin") springBoot = at;
+        }
+      } else {
+        // The Boot plugin is the most direct evidence for Spring Boot, so it goes first.
+        const plugin = /id\s*\(?\s*["']org\.springframework\.boot["']/.exec(text);
+        if (plugin) {
+          springBoot = ev(path, lineOf(text, plugin.index));
+          addTech(["Spring Boot", "framework"], springBoot);
+        }
+        for (const m of text.matchAll(/["']([\w.-]+):([\w.-]+)(?::[^"'\s]*)?["']/g)) {
+          for (const def of javaTech(m[2])) addTech(def, ev(path, lineOf(text, m.index!)));
+        }
+      }
+      const prefix = dir ? `${dir}: ` : "";
+      const at = ev(path, maven ? lineOf(text, "<project") : 1);
+      if (maven) {
+        const mvn = model.filesByPath.has(joinPath(dir, "mvnw") ?? "") ? "./mvnw" : "mvn";
+        commands.push({ name: `${prefix}${mvn} test`, command: `${mvn} test`, basis: "fact", evidence: at });
+        if (springBoot) commands.push({ name: `${prefix}${mvn} spring-boot:run`, command: `${mvn} spring-boot:run`, basis: "fact", evidence: springBoot });
+      } else {
+        const gradle = model.filesByPath.has(joinPath(dir, "gradlew") ?? "") ? "./gradlew" : "gradle";
+        commands.push({ name: `${prefix}${gradle} test`, command: `${gradle} test`, basis: "fact", evidence: at });
+        if (springBoot) commands.push({ name: `${prefix}${gradle} bootRun`, command: `${gradle} bootRun`, basis: "fact", evidence: springBoot });
+      }
+      continue;
+    }
+
     if (name === "go.mod") {
       for (const [mod, def] of Object.entries(GO_TECH)) if (text.includes(mod)) addTech(def, ev(path, lineOf(text, mod)));
       continue;
@@ -314,7 +461,7 @@ export function buildOverview(model: RepoModel, index: CodeIndex, texts: Readonl
   }
 
   // Language-level technologies from the tree itself.
-  for (const [language, label] of [["typescript", "TypeScript"], ["python", "Python"], ["go", "Go"], ["javascript", "JavaScript"]] as const) {
+  for (const [language, label] of [["typescript", "TypeScript"], ["python", "Python"], ["go", "Go"], ["rust", "Rust"], ["java", "Java"], ["javascript", "JavaScript"]] as const) {
     if (!model.stats.languages[language] || technologies.has(label)) continue;
     const sample = model.files.find((f) => f.language === language)!;
     technologies.set(label, { name: label, category: "runtime", basis: "fact", evidence: ev(sample.path, 1) });
@@ -322,7 +469,7 @@ export function buildOverview(model: RepoModel, index: CodeIndex, texts: Readonl
 
   // Entry points from parsed code.
   const routes = { total: 0, byFramework: {} as Record<string, number> };
-  const productFiles = Object.values(index.files).filter((f) => !NON_PRODUCT_DIR.test(f.path));
+  const productFiles = Object.values(index.files).filter((f) => !isNonProductPath(f.path));
   for (const file of productFiles) {
     for (const r of file.routes) {
       if (r.method === "PAGE") continue;
@@ -333,7 +480,7 @@ export function buildOverview(model: RepoModel, index: CodeIndex, texts: Readonl
       addEntry({
         path: file.path,
         kind: "main",
-        label: file.language === "go" ? "`func main` in package main" : "`if __name__ == \"__main__\":` block",
+        label: MAIN_ENTRY_LABEL[file.language] ?? "`main`",
         basis: "static-analysis",
         evidence: ev(file.path, file.mainAt),
       });
@@ -362,7 +509,7 @@ export function buildOverview(model: RepoModel, index: CodeIndex, texts: Readonl
 
   const modules = summarizeModules(model, index);
   const tech = [...technologies.values()];
-  const projectType = inferProjectType(model, tech, routes.total, hasBin, hasLibraryExport, entryPoints);
+  const projectType = inferProjectType(model, tech, routes.total, hasBin, hasLibraryExport, entryPoints, index);
 
   // Tests
   const testCounts = new Map<string, number>();
@@ -438,11 +585,21 @@ const ROLE_BY_NAME: [RegExp, string][] = [
 ];
 
 /** Folders that hold examples, fixtures or test data rather than the project itself. */
-export const NON_PRODUCT_DIR = /(^|\/)(__tests__|tests?|specs?|e2e|fixtures?|__fixtures__|testdata|examples?|samples?|demos?|templates?|benchmarks?)(\/|$)/i;
+export const NON_PRODUCT_DIR = /(^|\/)(__tests__|tests?|specs?|e2e|fixtures?|__fixtures__|testdata|examples?|samples?|demos?|templates?|benchmarks?|benches)(\/|$)/i;
+
+/**
+ * Whether a path belongs to tests, fixtures, examples and the like. Inside a JVM
+ * source root (`src/main/java/`) folders are package names, so `com/example/demo`
+ * says nothing about the code; only the part up to the source root is checked.
+ */
+export function isNonProductPath(path: string): boolean {
+  const root = /(^|\/)src\/[\w-]+\/(java|kotlin|scala)\//.exec(path);
+  return NON_PRODUCT_DIR.test(root ? path.slice(0, root.index + root[0].length) : path);
+}
 
 /** Workspace packages: folders with their own manifest that aren't examples or fixtures. */
 export function workspacePackages(model: RepoModel): DirNode[] {
-  return [...model.dirsByPath.values()].filter((d) => d.isPackage && d.path !== "" && d.depth <= 3 && !NON_PRODUCT_DIR.test(d.path));
+  return [...model.dirsByPath.values()].filter((d) => d.isPackage && d.path !== "" && d.depth <= 3 && !isNonProductPath(d.path));
 }
 
 /** The folders worth presenting as the project's main modules. */
@@ -493,7 +650,7 @@ function summarizeModules(model: RepoModel, index: CodeIndex): ModuleSummary[] {
     if (d.path === "") return rootModule(d, paths, index, importedBy, imports);
     // Only files that belong to this module (not to a more specific one listed alongside it).
     const routeCount = Object.values(index.files)
-      .filter((f) => moduleOf(paths, f.path) === d.path && !NON_PRODUCT_DIR.test(f.path))
+      .filter((f) => moduleOf(paths, f.path) === d.path && !isNonProductPath(f.path))
       .reduce((n, f) => n + f.routes.filter((r) => r.method !== "PAGE").length, 0);
     let role: ModuleSummary["role"];
     if (routeCount > 0) {
@@ -570,6 +727,7 @@ function inferProjectType(
   hasBin: boolean,
   hasLibraryExport: boolean,
   entries: EntryPoint[],
+  index: CodeIndex,
 ): Overview["projectType"] {
   const has = (n: string) => tech.some((t) => t.name === n);
   const reasons: string[] = [];
@@ -584,14 +742,26 @@ function inferProjectType(
   for (const fw of ["NestJS", "Express", "Fastify", "Hono", "Koa"]) if (has(fw)) return pick(`Node.js HTTP service (${fw})`, `depends on ${fw}${routeCount ? `; ${routeCount} route registrations found` : ""}`);
   for (const fw of ["Django", "FastAPI", "Flask"]) if (has(fw)) return pick(`Python web application (${fw})`, `depends on ${fw}${routeCount ? `; ${routeCount} route registrations found` : ""}`);
   for (const fw of ["Gin", "Echo", "chi", "gorilla/mux"]) if (has(fw)) return pick(`Go HTTP service (${fw})`, `go.mod requires ${fw}`);
+  for (const fw of ["axum", "Actix Web", "Rocket", "warp"]) if (has(fw)) return pick(`Rust HTTP service (${fw})`, `Cargo.toml depends on ${fw}${routeCount ? `; ${routeCount} route registrations found` : ""}`);
+  for (const fw of ["Spring MVC", "Spring WebFlux"]) {
+    if (has(fw)) return pick(`Java web application (${has("Spring Boot") ? "Spring Boot" : "Spring"})`, `depends on ${fw}${routeCount ? `; ${routeCount} route mappings found` : ""}`);
+  }
+  if (has("Spring Boot") && routeCount > 0) return pick("Java web application (Spring Boot)", `depends on Spring Boot; ${routeCount} route mappings found`);
+  for (const fw of ["Quarkus", "Micronaut"]) if (has(fw)) return pick(`Java service (${fw})`, `depends on ${fw}`);
   if (routeCount > 0 && entries.some((e) => e.kind === "http-route" && e.path.endsWith(".go"))) return pick("Go HTTP service", "net/http route registrations found");
   if (has("Electron")) return pick("Electron desktop application", "depends on electron");
   if ((has("React") || has("Vue") || has("Svelte")) && has("Vite")) return pick("Single-page web application", "UI framework built with Vite");
   if (hasBin) return pick("Command-line tool", "manifest declares a CLI entry (bin/scripts)");
-  if (model.stats.languages.go && entries.some((e) => e.kind === "main")) return pick("Go program", "`func main` in package main");
+  if (model.stats.languages.go && entries.some((e) => e.kind === "main" && e.path.endsWith(".go"))) return pick("Go program", "`func main` in package main");
+  if (entries.some((e) => e.kind === "main" && e.path.endsWith(".rs"))) return pick("Rust program", "`fn main` in a binary crate root");
+  if (entries.some((e) => e.kind === "main" && e.path.endsWith(".java"))) return pick("Java application", "`public static void main` found");
+  const crates = (index.rustCrates ?? []).filter((c) => !isNonProductPath(c.dir));
+  if (crates.some((c) => c.lib) && !crates.some((c) => c.bins.length)) return pick("Rust library", "crate has src/lib.rs and no binary");
   if (hasLibraryExport) return pick("Library / package", "manifest declares main/module/exports and no app framework");
   if (model.files.some((f) => f.name === "pyproject.toml" || f.name === "setup.py")) return pick("Python package", "pyproject.toml / setup.py present");
   if (model.files.some((f) => f.name === "go.mod")) return pick("Go module", "go.mod present");
+  if (model.files.some((f) => f.name === "Cargo.toml")) return pick("Rust crate", "Cargo.toml present");
+  if (model.files.some((f) => f.name === "pom.xml" || f.name.startsWith("build.gradle"))) return pick("Java project", "pom.xml / build.gradle present");
   reasons.push("no recognised framework, manifest entry or main function");
   return { label: prefix + "Repository (type not determined)", basis: "heuristic", reasons };
 }
@@ -608,10 +778,10 @@ function describeLimitations(model: RepoModel, index: CodeIndex): string[] {
   if (l.failed.length) out.push(`${l.failed.length} files could not be read.`);
   if (l.withheld.length) out.push(`${l.withheld.length} files look like secrets (.env, keys, credentials); their contents were not read.`);
   const unparsedLangs = Object.entries(model.stats.languages)
-    .filter(([lang, n]) => n > 0 && ["rust", "java", "kotlin", "csharp", "ruby", "php", "swift", "c", "cpp", "scala", "elixir"].includes(lang))
+    .filter(([lang, n]) => n > 0 && ["kotlin", "csharp", "ruby", "php", "swift", "c", "cpp", "scala", "elixir"].includes(lang))
     .map(([lang]) => lang);
   if (unparsedLangs.length) out.push(`No code parser yet for: ${unparsedLangs.join(", ")}. Those files appear in the map without symbols or dependencies.`);
-  out.push("Calls are resolved through imports and declarations only: dynamic dispatch, dependency injection, reflection and string-based routing are not followed.");
+  out.push("Calls are resolved through imports, declarations and declared types only: dynamic dispatch (interfaces, traits), dependency-injection wiring, reflection and string-based routing are not followed.");
   if (model.limits.truncated) out.push("The file listing was truncated; some files are missing.");
   if (model.limits.aggregatedDirs.length) out.push(`${model.limits.aggregatedDirs.length} large folders are drawn as single blocks in the city.`);
   if (model.excluded.skippedDirs.length) out.push(`Skipped without scanning: ${model.excluded.skippedDirs.slice(0, 6).map((d) => d.path).join(", ")}${model.excluded.skippedDirs.length > 6 ? "…" : ""} (dependencies, build output, caches).`);

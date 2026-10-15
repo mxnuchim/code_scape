@@ -90,3 +90,8 @@ Interaction colours (`WORLD` in `src/theme/palette.ts`): hover is white, selecti
   - The live region announces selections and journey steps.
   - Panel text is selectable.
 - **The legend panel is hidden while a left panel is open**, so the two never overlap.
+
+## 2026-10-15 18:06 WAT — Supported-language copy and runtime-dispatch gaps
+- **Language lists in UI copy come from one place.** `PARSED_LANGUAGES_AND` / `PARSED_LANGUAGES_OR` in `src/lib/analysis/languages.ts` ("JavaScript, TypeScript, Python, Go, Rust and Java"). HelpPanel, RepoPanel, InfoPanel, GuidePanel and the HUD use them; never hard-code a language list again (the HUD and InfoPanel had drifted and left out Go).
+- **A call on an interface or trait shows as a journey gap**, not a dead end and not a guessed implementation: the step lands on the declaration, and the journey bar shows the amber ⚠ gap line ("…is declared on an interface; the implementation is chosen at runtime and isn't followed") with its `path:line`. Same visual as other gaps.
+- **Route and main labels name the language's convention**: "spring route", "axum route", "rust-attribute route", and entry points read "`fn main` in a binary crate root" / "`public static void main` method".

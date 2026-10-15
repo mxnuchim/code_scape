@@ -147,6 +147,57 @@ describe("MCP server contract", () => {
   });
 });
 
+describe("MCP tools on Rust and Java repositories", () => {
+  const connect = async (fixture: string) => {
+    const { server } = await createCodescapeServer({ root: join(process.cwd(), "test", "fixtures", fixture), viewer: fakeViewer });
+    const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+    await server.connect(serverSide);
+    const c = new Client({ name: "test", version: "1.0.0" });
+    await c.connect(clientSide);
+    return c;
+  };
+  type Trace = { found: boolean; journey: { steps: { name: string; kind: string; calledAt: string | null; module: string | null }[]; gaps: { reason: string; location: string }[] } };
+
+  it("traces an axum route through a workspace crate to sqlx", async () => {
+    const c = await connect("rust-axum");
+    try {
+      const overview = (await c.callTool({ name: "get_codebase_overview", arguments: {} })) as ToolResult;
+      expect((overview.structuredContent as { projectType: { label: string } }).projectType.label).toBe("Monorepo (2 packages): Rust HTTP service (axum)");
+      const r = (await c.callTool({ name: "trace_code_path", arguments: { query: "POST /users" } })) as ToolResult;
+      const s = r.structuredContent as Trace;
+      expect(s.found).toBe(true);
+      expect(s.journey.steps.map((x) => [x.name, x.calledAt, x.module])).toEqual([
+        ["create_user", null, null],
+        ["UserStore.insert", "crates/api/src/routes.rs:14", null],
+        ["sqlx::query_scalar", "crates/storage/src/users/mod.rs:22", "sqlx"],
+        ["Json", "crates/api/src/routes.rs:15", "axum"],
+      ]);
+    } finally {
+      await c.close();
+    }
+  });
+
+  it("traces a Spring mapping through injected services to JdbcTemplate, with the interface call as a gap", async () => {
+    const c = await connect("java-spring");
+    try {
+      const r = (await c.callTool({ name: "trace_code_path", arguments: { query: "POST /users" } })) as ToolResult;
+      const s = r.structuredContent as Trace;
+      const J = "src/main/java/com/example/demo/";
+      expect(s.journey.steps.slice(0, 4).map((x) => [x.name, x.calledAt, x.module])).toEqual([
+        ["UserController.create", null, null],
+        ["UserService.register", `${J}web/UserController.java:19`, null],
+        ["UserRepository.insert", `${J}service/UserService.java:20`, null],
+        ["jdbc.queryForObject", `${J}repo/UserRepository.java:16`, "org.springframework.jdbc.core"],
+      ]);
+      expect(s.journey.gaps).toEqual([expect.objectContaining({ location: `${J}service/UserService.java:21` })]);
+      const deps = (await c.callTool({ name: "get_dependencies", arguments: { target: "UserService.register", direction: "downstream" } })) as ToolResult;
+      expect(JSON.stringify(deps.structuredContent)).toContain(`${J}repo/UserRepository.java#UserRepository.insert`);
+    } finally {
+      await c.close();
+    }
+  });
+});
+
 describe("MCP server security and validation", () => {
   it("rejects paths outside the repository", async () => {
     for (const target of ["../../package.json", "/etc/passwd", "src/../../x"]) {

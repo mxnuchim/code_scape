@@ -13,6 +13,7 @@ const STRING_TYPES = new Set([
   "template_string",
   "interpreted_string_literal",
   "raw_string_literal",
+  "string_literal",
 ]);
 
 /** The literal value of a string node, or undefined if it isn't a plain literal. */
@@ -30,17 +31,24 @@ export function stringValue(node: Node): string | undefined {
   return undefined;
 }
 
+const COMMENT_TYPES = new Set(["comment", "line_comment", "block_comment"]);
+
 /**
  * First meaningful line of the comment block directly above `node`
  * (JSDoc, `//`, `#`), trimmed to 160 characters.
  */
 export function docLine(node: Node): string | undefined {
-  const prev = node.previousNamedSibling;
-  if (!prev || prev.type !== "comment") return undefined;
-  if (prev.endPosition.row < node.startPosition.row - 1) return undefined;
+  // Rust attributes (`#[get("/")]`) sit between a doc comment and its item.
+  let anchor: Node = node;
+  while (anchor.previousNamedSibling?.type === "attribute_item" && anchor.previousNamedSibling.endPosition.row >= anchor.startPosition.row - 1) {
+    anchor = anchor.previousNamedSibling;
+  }
+  const prev = anchor.previousNamedSibling;
+  if (!prev || !COMMENT_TYPES.has(prev.type)) return undefined;
+  if (prev.endPosition.row < anchor.startPosition.row - 1) return undefined;
   // Walk up through a run of adjacent line comments.
   let first: Node = prev;
-  while (first.previousNamedSibling?.type === "comment" && first.previousNamedSibling.endPosition.row >= first.startPosition.row - 1) {
+  while (first.previousNamedSibling && COMMENT_TYPES.has(first.previousNamedSibling.type) && first.previousNamedSibling.endPosition.row >= first.startPosition.row - 1) {
     first = first.previousNamedSibling;
   }
   const lines: string[] = [];
@@ -51,7 +59,7 @@ export function docLine(node: Node): string | undefined {
 export function firstMeaningfulLine(comment: string): string | undefined {
   for (const raw of comment.split("\n")) {
     const line = raw
-      .replace(/^\s*(\/\*\*?|\*\/|\*|\/\/+|#+|"""|''')\s?/, "")
+      .replace(/^\s*(\/\*\*?|\*\/|\*|\/\/+!?|#+|"""|''')\s?/, "")
       .replace(/\*\/\s*$/, "")
       .replace(/("""|''')\s*$/, "")
       .trim();

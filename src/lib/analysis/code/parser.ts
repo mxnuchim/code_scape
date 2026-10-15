@@ -10,8 +10,10 @@
 import { Language, Parser } from "web-tree-sitter";
 import type { CodeLanguage, ParsedFile } from "./types";
 import { extractGo } from "./extract-go";
+import { extractJava } from "./extract-java";
 import { extractJs } from "./extract-js";
 import { extractPython } from "./extract-python";
+import { extractRust } from "./extract-rust";
 import { parseWithRegex } from "./fallback";
 
 export const GRAMMAR_FILES: Record<CodeLanguage, string> = {
@@ -20,6 +22,8 @@ export const GRAMMAR_FILES: Record<CodeLanguage, string> = {
   js: "tree-sitter-javascript.wasm",
   python: "tree-sitter-python.wasm",
   go: "tree-sitter-go.wasm",
+  rust: "tree-sitter-rust.wasm",
+  java: "tree-sitter-java.wasm",
 };
 export const RUNTIME_WASM = "web-tree-sitter.wasm";
 
@@ -37,6 +41,8 @@ export function codeLanguageFor(path: string): CodeLanguage | undefined {
   if (/\.(js|jsx|mjs|cjs)$/.test(lower)) return "js";
   if (/\.(py|pyi)$/.test(lower)) return "python";
   if (lower.endsWith(".go")) return "go";
+  if (lower.endsWith(".rs")) return "rust";
+  if (lower.endsWith(".java")) return "java";
   return undefined;
 }
 
@@ -124,7 +130,15 @@ export function parseSource(path: string, text: string): ParsedFile {
   try {
     const root = tree.rootNode;
     const result =
-      lang === "python" ? extractPython(path, root) : lang === "go" ? extractGo(path, root) : extractJs(path, lang, root);
+      lang === "python"
+        ? extractPython(path, root)
+        : lang === "go"
+          ? extractGo(path, root)
+          : lang === "rust"
+            ? extractRust(path, root)
+            : lang === "java"
+              ? extractJava(path, root)
+              : extractJs(path, lang, root);
     result.lineCount = text.length === 0 ? 0 : root.endPosition.row + 1;
     if (root.hasError) result.partial = true;
     return result;

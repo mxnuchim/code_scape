@@ -2,6 +2,7 @@
 
 import { getLastRateLimit } from "@/lib/github/client";
 import { formatBytes, formatCompact, formatDate, formatNumber, plural, timeAgo } from "@/lib/format";
+import { PARSED_LANGUAGES_AND, PARSED_LANGUAGES_OR } from "@/lib/analysis/languages";
 import { useCity } from "@/state/store";
 import { Badge, Fact, Section, languageBar } from "./common";
 import { IconAlert, IconExternal, IconGitHub } from "./icons";
@@ -162,7 +163,7 @@ export function RepoPanel() {
         {trace.status === "done" ? (
           <div className="space-y-2 text-[0.8rem] text-ink-soft">
             <p>
-              Parsed {formatNumber(trace.graph.traced.size)} of {formatNumber(trace.graph.eligible)} JavaScript, TypeScript, Python and Go files and found{" "}
+              Parsed {formatNumber(trace.graph.traced.size)} of {formatNumber(trace.graph.eligible)} {PARSED_LANGUAGES_AND} files and found{" "}
               <b className="text-ink">{plural(trace.graph.edges.length, "import")}</b>
               {analysis ? (
                 <>
@@ -183,8 +184,9 @@ export function RepoPanel() {
               </p>
             )}
             <p className="text-[0.74rem] text-ink-faint">
-              Only imports that resolve to a real file are drawn: relative paths, tsconfig aliases, Python modules and Go packages in this
-              module. Package imports and other languages aren&apos;t traced. Nothing is inferred from folders being near each other.
+              Only imports that resolve to a real file are drawn: relative paths, tsconfig aliases, Python modules, Go packages in this
+              module, Rust crate modules and Java packages. Package imports and other languages aren&apos;t traced. Nothing is inferred
+              from folders being near each other.
             </p>
           </div>
         ) : trace.status === "running" ? (
@@ -192,7 +194,7 @@ export function RepoPanel() {
             Tracing imports… {trace.done}/{trace.total} files read.
           </p>
         ) : trace.status === "unsupported" ? (
-          <p className="text-[0.8rem] text-ink-soft">No JavaScript, TypeScript, Python or Go files, so no connections are traced.</p>
+          <p className="text-[0.8rem] text-ink-soft">No {PARSED_LANGUAGES_OR} files, so no connections are traced.</p>
         ) : trace.status === "error" ? (
           <p className="text-[0.8rem] text-ink-soft">Tracing failed: {trace.message}</p>
         ) : (

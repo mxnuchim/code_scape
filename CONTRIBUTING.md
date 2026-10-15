@@ -42,10 +42,13 @@ pnpm test:e2e      # needs `pnpm build` and `pnpm exec playwright install chromi
 
 ## Adding a language
 
-1. Add the grammar package and its `.wasm` file to `scripts/wasm-files.mjs` and `src/lib/local/wasm.ts`.
-2. Add `extract-<lang>.ts`, producing `ParsedFile`: symbols with ranges, imports with bindings, calls with the enclosing symbol, and routes or main blocks where it makes sense.
-3. Teach `buildIndex.ts` to resolve that language's imports to files.
-4. Add a fixture under `test/fixtures/` and tests in `code.test.ts`.
+1. Spike first: check the grammar's licence and that its `.wasm` loads with the pinned `web-tree-sitter` in Node (see LEARNINGS.md). Pin the package version exactly.
+2. Add the grammar's `.wasm` file to `scripts/wasm-files.mjs` and `src/lib/local/wasm.ts`, and to `GRAMMAR_FILES` and `codeLanguageFor` in `src/lib/analysis/code/parser.ts`.
+3. Add `extract-<lang>.ts`, producing `ParsedFile`: symbols with ranges, imports with bindings, calls with the enclosing symbol, and routes or main blocks where it makes sense. Record a receiver's type only when the source declares it.
+4. Teach `buildIndex.ts` (and a resolver in `src/lib/analysis/imports/` if the rules are involved) to resolve that language's imports to files, and `SymbolResolver` to resolve its calls. Only real bindings, never name similarity.
+5. Read its manifest in `overview.ts` (technologies with line evidence, commands, project type) and remove it from the "No code parser yet" list.
+6. Add it to `PARSED_LANGUAGES` in `src/lib/analysis/languages.ts`, which the UI copy uses, and update the README and docs limits.
+7. Add a fixture under `test/fixtures/`, exact-line tests in `code.test.ts`, and a journey check in `src/mcp/mcp.test.ts`.
 
 ## Work logs
 

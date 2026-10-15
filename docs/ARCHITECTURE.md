@@ -37,14 +37,15 @@ Dependencies point downward only: the UI depends on the engine, and the engine k
 
 1. **Model.** `buildRepoModel(snapshot)` turns a list of paths and sizes into folders and files with classifications, landmarks and exclusions. Folders that would push the city over its 2,500-building budget are collapsed into blocks. The result is deterministic: entries are sorted, and ties break by path.
 2. **Index.** `buildCodeIndex(model, { readText })` reads a prioritised, bounded set of files (entry points first, then source by depth, then tests). It parses each file with tree-sitter into symbols with line ranges, imports with their bindings, exports, call sites with the enclosing symbol, and route registrations. Then it resolves:
-   - **Imports → files:** relative paths, tsconfig `paths`/`baseUrl`, Python packages and relative imports, and Go packages under `go.mod`.
-   - **Calls → declarations:** only through real bindings. That means a same-file declaration, an imported binding (following re-exports up to 6 hops), `this.x()` / `self.x()` inside a class, an instance of a known class, or `pkg.Func` in Go.
+   - **Imports → files:** relative paths, tsconfig `paths`/`baseUrl`, Python packages and relative imports, Go packages under `go.mod`, Rust `use`/`mod` paths (`crate::`, `self::`, `super::`, child modules as `a.rs` or `a/mod.rs`, and other crates in a Cargo workspace; see `imports/resolveRust.ts`), and Java imports under source roots derived from `package` declarations (`src/main/java/`; see `imports/resolveJava.ts`).
+   - **Calls → declarations:** only through real bindings. That means a same-file declaration, an imported binding (following re-exports up to 6 hops), `this.x()` / `self.x()` inside a class, an instance of a known class, `pkg.Func` in Go, or, in Rust and Java, a receiver whose type the source declares (a parameter such as `State(store): State<UserStore>`, a typed local, or a field such as a constructor-injected Spring service). Java overloads are told apart by argument count; if that leaves more than one, no edge is drawn. A call on an interface or trait reaches the declaration and the journey records a gap, because the implementation is chosen at runtime.
    - **Calls into packages:** recorded as `external` references, which show where a journey leaves the repository.
    - Nothing is inferred from names that merely look alike.
-3. **Overview.** Technologies and commands come from manifests, each with the line it was read from. Entry points come from manifest `main`/`bin`/`scripts`, route registrations, `__main__` / `func main` and framework conventions; naming conventions are only a fallback, labelled heuristic. Modules are workspace packages, or top-level folders with a dominant `src` expanded. Their roles come from route counts (static analysis) or folder names (heuristic). The overview ends with a list of limitations.
-4. **Journeys.** Starts are HTTP routes (Express-style, Next.js app router and pages API, Flask/FastAPI decorators, Go `net/http` and routers), Next.js pages and `main` blocks. From each start, the walk follows call edges depth-first in source order, up to 30 steps and 6 levels deep. It skips same-file helpers that lead nowhere, adds package boundaries as external steps, and records gaps:
+3. **Overview.** Technologies and commands come from manifests (`package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `pom.xml`, `build.gradle`), each with the line it was read from. Entry points come from manifest `main`/`bin`/`scripts`, route registrations, `main` functions and framework conventions; naming conventions are only a fallback, labelled heuristic. Modules are workspace packages, or top-level folders with a dominant `src` expanded. Their roles come from route counts (static analysis) or folder names (heuristic). The overview ends with a list of limitations.
+4. **Journeys.** Starts are HTTP routes (Express-style, Next.js app router and pages API, Flask/FastAPI decorators, Go `net/http` and routers, Rust attribute macros such as actix/Rocket `#[get("/")]` and axum `.route()`, Spring `@GetMapping`/`@RequestMapping`), Next.js pages and `main` blocks (Python `__main__`, Go `func main`, Rust `fn main` in a binary crate root, Java `public static void main`). From each start, the walk follows call edges depth-first in source order, up to 30 steps and 6 levels deep. It skips same-file helpers that lead nowhere, adds package boundaries as external steps, and records gaps:
    - unresolved handlers;
-   - calls through object fields (`this.repo.save()`);
+   - calls through object fields (`this.repo.save()`), unless the field's type is declared (Rust, Java);
+   - calls on an interface or trait method, whose implementation is chosen at runtime;
    - the step and depth limits.
 5. **Onboarding.** The README and the manifest come first, then the strongest entry points, then the steps of the representative journey. After those come the files most other code depends on (distinct non-test importers plus resolved callers) and a related test. Every item records its reason and basis.
 
@@ -61,7 +62,7 @@ The same snapshot always produces the same ids, edges, journeys and positions; `
 
 ### Parsing
 
-`web-tree-sitter` loads the official grammar `.wasm` files for TypeScript, TSX, JavaScript, Python and Go. The same code runs in Node and in the browser; only the WASM locator differs:
+`web-tree-sitter` loads the official grammar `.wasm` files for TypeScript, TSX, JavaScript, Python, Go, Rust and Java. Grammars load lazily, only for languages present in the files being parsed. The same code runs in Node and in the browser; only the WASM locator differs:
 
 - `src/lib/local/wasm.ts` reads bytes from `dist/wasm/` or `node_modules`;
 - the browser loads them from `/wasm/`, which `scripts/wasm-files.mjs` copies there.
@@ -102,9 +103,9 @@ The analysed root is chosen in this order: `--root`, then `CODESCAPE_ROOT`, then
 
 | Suite | Covers |
 |---|---|
-| `src/lib/analysis/**/*.test.ts` | Classification, model, layout determinism; extraction with exact lines for TS, Python and Go; resolution through aliases and re-exports; journeys; overview; onboarding; queries |
+| `src/lib/analysis/**/*.test.ts` | Classification, model, layout determinism; extraction with exact lines for TS, Python, Go, Rust and Java; resolution through aliases and re-exports; journeys; overview; onboarding; queries |
 | `src/lib/local/local.test.ts` | Traversal, symlink escapes, sensitive files, redaction, `.gitignore`, entry and parse caps, freshness and parse-cache reuse, git revision from files (loose refs, packed refs, detached HEAD, worktrees). Hostile repositories are generated in a temp dir. |
 | `src/mcp/mcp.test.ts` | Tool list and schemas, every tool's output contract, traversal and validation errors, result size ceiling, CLI root resolution, and raw JSON-RPC over stdio against the built `dist/cli.mjs` |
 | `e2e/*.spec.ts` (Playwright) | Guide, journeys and stepping, cold deep links, symbol search to source, the keyboard file tree, error recovery, API guards, reduced motion. Runs against the production build serving a fixture. |
 
-The fixtures live in `test/fixtures/`. They are small hand-written repositories (Express, Flask, Next.js, Go) whose exact line numbers the tests assert.
+The fixtures live in `test/fixtures/`. They are small hand-written repositories (Express, Flask, Next.js, Go, a Rust axum workspace and a Spring Boot app) whose exact line numbers the tests assert.

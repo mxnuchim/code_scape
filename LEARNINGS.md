@@ -46,3 +46,15 @@ Format: `## YYYY-MM-DD HH:MM TZ — problem` then **Symptom**, **Cause**, **Fix 
 - **Don't render two heavy 3D pages at once in one test.** CPU contention makes the second one time out. Close the first page before opening a deep link.
 - **`getByRole("alert")` also matches Next's hidden `__next-route-announcer__`.** Scope the locator, e.g. `section[role=alert]`.
 - **A project's own name in `pyproject.toml` matched its dependency list.** `name = "flask"` made Flask "depend on Flask". Blank the name line before matching, and compute line numbers on that same blanked text.
+
+## 2026-10-15 17:56 WAT — Rust and Java parsing pitfalls
+- **`com/example/demo` is a package, not an example folder.** `NON_PRODUCT_DIR` hid every Spring Initializr app's routes and `main`. **Rule:** use `isNonProductPath()`, which only checks the part of a path up to a JVM source root (`src/main/java/`).
+- **web-tree-sitter returns new `Node` wrappers on every access**, so `a === b` is false for the same node. Compare `node.id`.
+- **Rust: `lastIndexOf("::")` is -1 without a separator**; `slice(-1 + 2)` silently drops the first character (`Service` → `ervice`).
+- **axum builder chains are visited outermost-first** and the call node starts at `Router::new()`; take the line of the path literal and sort routes by line.
+- **Routes inside `#[cfg(test)] mod tests` and `#[tokio::test]` fns** made the axum repo's journeys all "GET /". Skip them.
+- **A workspace's crates depend on each other** (axum-extra → axum): ignore dependencies that are local crates, or a library looks like a service built on itself.
+- **Spring Boot 4 renamed `spring-boot-starter-web` to `-webmvc`.** Match both, and treat Spring Boot plus route mappings as a web app.
+- **`pnpm lint` also scans `.claude/worktrees/*`** (other sessions' checkouts, git-ignored), which fail lint on their own. Lint this tree with `pnpm exec eslint --ignore-pattern '.claude/**' .`.
+- **A Playwright spec that imports from another spec runs that spec's tests too.** Inline helpers in one-off specs.
+- **The user's own `next dev` blocks a second one.** For a fixture preview, use the production viewer (`node dist/cli.mjs view --root … --port 3200`, launch config `codescape-view-java-fixture`) after `pnpm build`.

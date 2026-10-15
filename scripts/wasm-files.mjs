@@ -13,6 +13,8 @@ export const WASM_FILES = {
   "tree-sitter-javascript.wasm": "tree-sitter-javascript/tree-sitter-javascript.wasm",
   "tree-sitter-python.wasm": "tree-sitter-python/tree-sitter-python.wasm",
   "tree-sitter-go.wasm": "tree-sitter-go/tree-sitter-go.wasm",
+  "tree-sitter-rust.wasm": "tree-sitter-rust/tree-sitter-rust.wasm",
+  "tree-sitter-java.wasm": "tree-sitter-java/tree-sitter-java.wasm",
 };
 
 /** Copy every WASM file into `dir`. They are direct dependencies, so pnpm links them at node_modules/<pkg>. */

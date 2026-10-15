@@ -180,3 +180,11 @@ export function detectLanguage(name: string): LanguageInfo {
   if (lower.startsWith(".") && lower.endsWith("rc")) return LANGUAGES.ini;
   return LANGUAGES.other;
 }
+
+/** Languages parsed into symbols, imports and calls, for user-facing copy. */
+export const PARSED_LANGUAGES = ["JavaScript", "TypeScript", "Python", "Go", "Rust", "Java"] as const;
+const listOf = (word: "and" | "or") => `${PARSED_LANGUAGES.slice(0, -1).join(", ")} ${word} ${PARSED_LANGUAGES[PARSED_LANGUAGES.length - 1]}`;
+/** "JavaScript, TypeScript, Python, Go, Rust and Java" */
+export const PARSED_LANGUAGES_AND = listOf("and");
+/** "JavaScript, TypeScript, Python, Go, Rust or Java" */
+export const PARSED_LANGUAGES_OR = listOf("or");

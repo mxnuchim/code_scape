@@ -1,6 +1,6 @@
 import type { RepoModel } from "../types";
-import { importLanguageFor } from "./extract";
 import { buildCodeIndex } from "../code/buildIndex";
+import { isParseable } from "../code/parser";
 import { toDependencyGraph } from "../workspace";
 import { aliasFromTsconfig, dirname, joinPath, parseJsonc, type AliasConfig } from "./resolve";
 
@@ -20,7 +20,7 @@ export interface DependencyGraph {
   traced: Set<string>;
   /** Files we tried to read but couldn't. */
   failed: Set<string>;
-  /** Files in a traceable language (JS/TS/Python). */
+  /** Files in a parseable language (see PARSED_LANGUAGES). */
   eligible: number;
   /** Eligible files skipped for being larger than TRACE_MAX_BYTES. */
   skippedLarge: number;
@@ -63,7 +63,7 @@ const RANK = { source: 1, test: 2 } as Record<string, number>;
 export function planTrace(model: RepoModel, cap = TRACE_FILE_CAP) {
   let skippedLarge = 0;
   const eligible = model.files.filter((f) => {
-    if (!importLanguageFor(f.path)) return false;
+    if (!isParseable(f.path)) return false;
     if (f.size > TRACE_MAX_BYTES) {
       skippedLarge++;
       return false;
