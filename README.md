@@ -120,8 +120,8 @@ Contributors and coding agents should read [CONTRIBUTING.md](CONTRIBUTING.md) an
 
 ## Limits
 
-- **Languages.** Parsing covers JavaScript, TypeScript, Python and Go. Other languages appear in the map without symbols or edges.
-- **Static analysis only.** Dependency injection, dynamic dispatch, reflection and string-based routing aren't followed, and journeys show those points as gaps.
+- **Languages.** Parsing covers JavaScript, TypeScript, Python, Go, Rust and Java. Other languages (Kotlin, C#, Ruby, PHP and so on) appear in the map without symbols or edges.
+- **Static analysis only.** Dynamic dispatch, reflection and string-based routing aren't followed, and journeys show those points as gaps. In Rust and Java, a call is followed through a parameter, local or field only when its type is declared in the source, so constructor-injected Spring services are traced, but a call on an interface or trait stops at its declaration.
 - **Caps.** Large repositories hit the parse caps (300 files in the browser; 4,000 files or 40 MB locally). The overview always lists what was left out.
 - **Runtime behaviour.** No runtime data is used yet: no traces, latency or errors.
 

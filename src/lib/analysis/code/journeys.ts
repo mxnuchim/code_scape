@@ -9,8 +9,8 @@
  */
 import type { RepoModel } from "../types";
 import { SymbolResolver } from "./buildIndex";
-import { NON_PRODUCT_DIR } from "./overview";
-import type { CallSite, CodeEdge, CodeIndex, CodeSymbol, ExternalRef, LineRange } from "./types";
+import { isNonProductPath } from "./overview";
+import type { CallSite, CodeEdge, CodeIndex, CodeLanguage, CodeSymbol, ExternalRef, LineRange } from "./types";
 
 export const MAX_JOURNEY_DEPTH = 6;
 export const MAX_JOURNEY_STEPS = 30;
@@ -80,13 +80,20 @@ export function journeyId(kind: JourneyKind, title: string, startId: string): st
   return `${kind}-${slug}-${hash4(startId)}`;
 }
 
+const MAIN_LABEL: Partial<Record<CodeLanguage, string>> = {
+  python: "__main__ block",
+  go: "func main",
+  rust: "fn main",
+  java: "static void main",
+};
+
 /** Where execution can enter the code, as far as static analysis can tell. */
 export function findJourneyStarts(model: RepoModel, index: CodeIndex): JourneyStart[] {
-  const resolver = new SymbolResolver(index.files, model);
+  const resolver = new SymbolResolver(index.files, model, index.rustCrates);
   const starts: JourneyStart[] = [];
   for (const file of Object.values(index.files)) {
     // Examples, fixtures and tests have their own entry points; they aren't the product's.
-    if (NON_PRODUCT_DIR.test(file.path) || model.filesByPath.get(file.path)?.category === "test") continue;
+    if (isNonProductPath(file.path) || model.filesByPath.get(file.path)?.category === "test") continue;
     for (const r of file.routes) {
       const title = r.method === "PAGE" ? `Page ${r.route}` : `${r.method} ${r.route}`;
       if (r.handler) {
@@ -109,11 +116,12 @@ export function findJourneyStarts(model: RepoModel, index: CodeIndex): JourneySt
       }
     }
     if (file.mainAt) {
-      const mainSym = file.language === "go" ? file.symbols.find((s) => s.qualifiedName === "main") : undefined;
+      // Python's guard is module scope; elsewhere `main` is a declaration.
+      const mainSym = file.language === "python" ? undefined : file.symbols.find((s) => s.name === "main" && s.range.startLine === file.mainAt);
       starts.push({
         kind: "main",
         title: `Run ${file.path}`,
-        label: file.language === "go" ? "func main" : "__main__ block",
+        label: MAIN_LABEL[file.language] ?? "main",
         id: mainSym?.id ?? file.path,
         path: file.path,
         line: file.mainAt,
@@ -198,6 +206,12 @@ export function traceFrom(index: CodeIndex, start: JourneyStart): Journey {
       }
       visited.add(edge.to);
       steps.push({ index: steps.length, depth: depth + 1, kind: "call", ...stepFor(edge.to), via: { path: edge.fromPath, line: edge.lines[0] } });
+      // A call through an interface or trait reaches the declaration only.
+      const target = symbols.get(edge.to);
+      const owner = target?.kind === "method" ? symbols.get(`${target.path}#${target.qualifiedName.slice(0, target.qualifiedName.lastIndexOf("."))}`) : undefined;
+      if (owner?.kind === "interface") {
+        gaps.push({ atStep: steps.length - 1, reason: `\`${target!.qualifiedName}\` is declared on an interface; the implementation is chosen at runtime and isn't followed`, path: edge.fromPath, line: edge.lines[0] });
+      }
       if (depth + 1 < MAX_JOURNEY_DEPTH) visit(edge.to, depth + 1);
       else if (outgoing.get(edge.to)?.some((e) => !visited.has(e.to))) truncated = true;
     }
@@ -212,10 +226,13 @@ export function traceFrom(index: CodeIndex, start: JourneyStart): Journey {
       steps.push({ index: steps.length, depth: depth + 1, kind: "external", id: `external:${key}`, name: x.callee!, path: x.path, via: { path: x.path, line: x.line }, module: x.module });
     }
 
-    // Calls through object fields can't be followed without types: report them.
+    // Calls through object fields can't be followed without types: report them,
+    // unless a declared field type (Rust, Java) already let them resolve.
+    const resolvedLines = new Set([...(outgoing.get(id) ?? []).flatMap((e) => e.lines), ...externals.map((x) => x.line)]);
     let reported = 0;
     for (const { path, call } of callsBy.get(id) ?? []) {
       if (reported >= MAX_GAPS_PER_STEP) break;
+      if (call.receiverType && resolvedLines.has(call.line)) continue;
       const parts = call.callee.split(".");
       if ((parts[0] === "this" || parts[0] === "self") && parts.length >= 3) {
         gaps.push({ atStep: current, reason: `\`${call.callee}()\` goes through an object field; its target depends on runtime wiring and isn't followed`, path, line: call.line });

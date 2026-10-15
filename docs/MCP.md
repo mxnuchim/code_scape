@@ -106,7 +106,7 @@ You can attach the overview as context with `@codescape:codescape://overview`.
 Every claim carries a **basis**:
 
 - **fact**: read directly from the file tree or a manifest, such as `package.json` or `pyproject.toml`.
-- **static-analysis**: established by parsing source and resolving imports and calls. This covers JavaScript, TypeScript, Python and Go.
+- **static-analysis**: established by parsing source and resolving imports and calls. This covers JavaScript, TypeScript, Python, Go, Rust and Java.
 - **heuristic**: inferred from names or structure, such as "this folder is probably the data layer". Treat it as a hint.
 
 Nothing is inferred from runtime behaviour, because CodeScape never runs your code. Calls made through dependency injection, dynamic dispatch, reflection or string-based routing can't be followed statically. `trace_code_path` reports those as gaps instead of guessing.
@@ -131,7 +131,7 @@ node /absolute/path/to/codescape/dist/cli.mjs view --root /path/to/repo --open
 
 - **Parsing caps.** Up to 4,000 source files and 40 MB are parsed, entry points and source first. Files over 512 KB are skipped. The tree walk stops at 100,000 entries. Anything left out is reported in each overview's limitations.
 - **Withheld files.** Files that look like secrets (`.env*`, keys, certificates, credentials, anything named `*secret*`) are listed but never read. Text that does get returned passes through secret redaction.
-- **Unsupported languages.** Rust, Java, C# and other languages appear in the map without symbols or dependencies for now.
+- **Unsupported languages.** Kotlin, C#, Ruby, PHP and other languages appear in the map without symbols or dependencies for now.
 - **Staleness.** Every tool call checks file sizes and modification times. If anything changed, the analysis is rebuilt and only the changed files are re-parsed. When that happens, the result says `re-analysed: files changed`.
 
 ## Troubleshooting

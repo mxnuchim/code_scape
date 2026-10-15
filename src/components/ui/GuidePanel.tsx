@@ -4,6 +4,7 @@ import { useState } from "react";
 import { targetForPath } from "@/state/deepLinks";
 import { useCity } from "@/state/store";
 import { formatNumber, plural } from "@/lib/format";
+import { PARSED_LANGUAGES_OR } from "@/lib/analysis/languages";
 import { BasisBadge, LocLink } from "./Evidence";
 import { Section } from "./common";
 import { IconBook, IconChevron, IconRoute } from "./icons";
@@ -75,7 +76,7 @@ export function GuidePanel() {
                 Parsing source · {trace.done}/{trace.total} files
               </>
             ) : trace.status === "unsupported" ? (
-              "No supported source files (JavaScript, TypeScript, Python or Go) were found, so there is no code guide for this repository."
+              `No supported source files (${PARSED_LANGUAGES_OR}) were found, so there is no code guide for this repository.`
             ) : trace.status === "error" ? (
               `Source analysis failed: ${trace.message}`
             ) : (

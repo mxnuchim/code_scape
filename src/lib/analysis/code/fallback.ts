@@ -19,7 +19,7 @@ export function parseWithRegex(path: string, text: string, lang: CodeLanguage | 
       bindings: [],
       python: { level, module, names },
     }));
-  } else if (language !== "go") {
+  } else if (language === "js" || language === "ts" || language === "tsx") {
     base.imports = findJsImports(text).map(({ specifier, line }) => ({ specifier, line, kind: "static", typeOnly: false, bindings: [] }));
   }
   return base;

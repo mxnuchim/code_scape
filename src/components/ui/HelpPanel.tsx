@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useRef } from "react";
 import { ARCHETYPE_INFO, type Archetype } from "@/lib/layout/archetypes";
+import { PARSED_LANGUAGES_AND } from "@/lib/analysis/languages";
 import { useCity } from "@/state/store";
 import { ArchetypeGlyph, IconClose } from "./icons";
 import { useMediaQuery } from "./common";
@@ -62,7 +63,7 @@ export function HelpPanel() {
                   </li>
                   <li><b className="text-ink">Streets</b> separate folders. They show structure, not dependencies.</li>
                   <li>
-                    <b className="text-ink">Arcs</b> are imports and calls parsed from JavaScript, TypeScript, Python and Go source. An arc is drawn only
+                    <b className="text-ink">Arcs</b> are imports and calls parsed from {PARSED_LANGUAGES_AND} source. An arc is drawn only
                     when it resolves to a real file in the repo. They are static: they show code relationships, not traffic.
                   </li>
                   <li>

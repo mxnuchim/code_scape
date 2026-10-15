@@ -6,6 +6,7 @@
  * can say how it is known. Runtime behaviour is never represented here: all of
  * this is read from source text without executing it.
  */
+import type { RustCrate } from "../imports/resolveRust";
 
 /**
  * How a claim is known.
@@ -25,7 +26,7 @@ export interface Evidence extends LineRange {
   path: string;
 }
 
-export type CodeLanguage = "ts" | "tsx" | "js" | "python" | "go";
+export type CodeLanguage = "ts" | "tsx" | "js" | "python" | "go" | "rust" | "java";
 
 export type SymbolKind =
   | "function"
@@ -49,8 +50,13 @@ export interface CodeSymbol {
   exported: boolean;
   /** First line of a leading doc comment / docstring, when present. */
   doc?: string;
-  /** For variables initialised with `new X()` (used to resolve `x.method()`). */
+  /**
+   * For variables initialised with `new X()`, and Java fields declared with a
+   * type (used to resolve `x.method()`).
+   */
   instanceOf?: string;
+  /** Java methods and constructors: parameter count, to tell overloads apart. */
+  params?: number;
 }
 
 export interface ImportBinding {
@@ -70,6 +76,10 @@ export interface ImportRecord {
   bindings: ImportBinding[];
   /** Python only: leading dots and dotted module, for the resolver. */
   python?: { level: number; module: string; names: string[] };
+  /** Rust only: the `use` path split on `::`, or a `mod name;` declaration. */
+  rust?: { path: string[]; glob: boolean; isMod?: boolean };
+  /** Java only: `import static` and `.*` imports. */
+  java?: { static: boolean; wildcard: boolean };
   /** Repository files this import resolves to (set by the indexer). Empty: external or unresolved. */
   targets?: string[];
 }
@@ -80,6 +90,13 @@ export interface CallSite {
   line: number;
   /** Symbol id of the innermost enclosing function/method/handler, if any. */
   enclosing?: string;
+  /**
+   * Rust and Java: the declared type of the receiver in `x.m()`, read from a
+   * parameter, local, field or struct-field declaration in the same file.
+   */
+  receiverType?: string;
+  /** Java: number of arguments, to pick between overloads. */
+  argCount?: number;
 }
 
 export type RouteFramework =
@@ -88,7 +105,10 @@ export type RouteFramework =
   | "next-pages-api"
   | "express-style"
   | "flask-style"
-  | "go-http";
+  | "go-http"
+  | "rust-attribute"
+  | "axum"
+  | "spring";
 
 export interface RouteDecl {
   method: string;
@@ -116,10 +136,15 @@ export interface ParsedFile {
    * binding being re-exported). Python and Go export by naming rules instead.
    */
   exports: Record<string, string>;
-  /** Line of `if __name__ == "__main__":` or Go `func main` in package main. */
+  /**
+   * Line of `if __name__ == "__main__":`, Go `func main` in package main, Rust
+   * `fn main` in a binary crate root, or Java `public static void main`.
+   */
   mainAt?: number;
   /** Go: the package clause name. */
   goPackage?: string;
+  /** Java: the package declaration. */
+  javaPackage?: string;
   /** Set when the parser reported syntax errors; results may be partial. */
   partial?: boolean;
 }
@@ -172,5 +197,7 @@ export interface CodeIndex {
   importEdges: CodeEdge[];
   callEdges: CodeEdge[];
   external: ExternalRef[];
+  /** Rust crates found from Cargo.toml files, for resolving `use` paths later (journeys). */
+  rustCrates?: RustCrate[];
   limits: CodeIndexLimits;
 }

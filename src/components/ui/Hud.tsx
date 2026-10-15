@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { formatCompact, formatDate, formatNumber, plural } from "@/lib/format";
+import { PARSED_LANGUAGES_OR } from "@/lib/analysis/languages";
 import { goToLanding } from "@/state/loader";
 import { useCity, type TraceState } from "@/state/store";
 import { FilterTray } from "./FilterTray";
@@ -76,7 +77,7 @@ function traceSummary(trace: TraceState): string | null {
       ? `Traced imports in ${formatNumber(g.traced.size)} of ${formatNumber(g.eligible)} source files · ${plural(g.edges.length, "connection")}`
       : `Traced ${formatNumber(g.traced.size)} files. No imports between them resolved to files in this repo`;
   }
-  if (trace.status === "unsupported") return "No JavaScript, TypeScript or Python files to trace, so no connections are drawn";
+  if (trace.status === "unsupported") return `No ${PARSED_LANGUAGES_OR} files to trace, so no connections are drawn`;
   if (trace.status === "error") return "Couldn't trace imports. The city is unaffected, but no connections are drawn";
   return null;
 }

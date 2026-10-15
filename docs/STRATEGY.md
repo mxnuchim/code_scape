@@ -57,7 +57,7 @@ Build only the capabilities whose evidence column turns out to be true.
 
 | Capability | User problem | Data needed | Prerequisites | Complexity | Evidence that would justify it |
 |---|---|---|---|---|---|
-| More languages (Rust, Java, C#, Ruby, PHP) | "My repository shows buildings but no edges." | tree-sitter grammars (available) | An extractor and resolver per language | Medium per language | Issues and requests naming a language; the share of analysed repositories in unsupported languages |
+| More languages (Kotlin, C#, Ruby, PHP; Rust and Java shipped 2026-10-15) | "My repository shows buildings but no edges." | tree-sitter grammars (available) | An extractor and resolver per language | Medium per language | Issues and requests naming a language; the share of analysed repositories in unsupported languages |
 | Change-impact view | "What does this change affect?" | The current index plus a diff | Transitive `get_dependencies` (exists); a diff input | Low–medium | Users ask Claude impact questions; people use depth-2 dependencies |
 | Pull-request visualisation | Reviewers can't see where a PR sits in the architecture. | The PR diff, and the base and head indexes | GitHub API or a local branch diff; index comparison | Medium | Demand from reviewers; the change-impact view gets used |
 | Git history exploration | "Which parts change together, and who knows them?" | `git log` (read via libgit2 or isomorphic-git, never by running repository hooks) | Safe git reading; time-series layout | Medium–high | Requests for "hotspots" or "ownership" |
