@@ -12,13 +12,6 @@ import { BUNDLED_SNAPSHOT as BUNDLED_SAMPLE } from "./bundledSnapshot";
 
 export { BUNDLED_SNAPSHOT as BUNDLED_SAMPLE } from "./bundledSnapshot";
 
-export const SAMPLE_REPOS: { owner: string; repo: string; note: string }[] = [
-  { owner: "pallets", repo: "flask", note: "Python" },
-  { owner: "pmndrs", repo: "zustand", note: "TypeScript" },
-  { owner: "expressjs", repo: "express", note: "JavaScript" },
-  { owner: "vitejs", repo: "vite", note: "Large monorepo" },
-];
-
 type HistoryMode = "push" | "replace" | "none";
 
 let controller: AbortController | null = null;

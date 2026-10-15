@@ -3,9 +3,11 @@
 import { motion } from "motion/react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { parseRepoUrl, type RepoUrlErrorKind } from "@/lib/github/parseRepoUrl";
-import { loadRepo, SAMPLE_REPOS } from "@/state/loader";
+import { loadRepo } from "@/state/loader";
+import { FEATURED, LIBRARY_SIZE } from "@/lib/repoLibrary";
 import { useCity } from "@/state/store";
-import { BrandMark, IconArrowRight, IconGitHub, IconHelp } from "./icons";
+import { BrandMark, IconArrowRight, IconBook, IconGitHub, IconHelp } from "./icons";
+import { RepoAvatar } from "./RepoAvatar";
 import { EnvironmentControl } from "./EnvironmentControl";
 
 const ERROR_COPY: Record<RepoUrlErrorKind, (detail?: string) => string> = {
@@ -158,22 +160,33 @@ export function Landing() {
           </form>
 
           <div className="mt-4 border-t border-white/[0.07] pt-3">
-            <p className="eyebrow mb-2">Examples</p>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="eyebrow">Start with a famous codebase</p>
+              <button
+                type="button"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-md text-[12px] font-medium text-accent hover:text-[#ffb63f] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                onClick={() => useCity.setState({ panel: "library" })}
+                aria-haspopup="dialog"
+              >
+                <IconBook size={14} />
+                Browse all {LIBRARY_SIZE}
+              </button>
+            </div>
             <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 sm:flex-wrap sm:overflow-visible">
-              {SAMPLE_REPOS.map((s) => (
+              {FEATURED.map((s) => (
                 <button
                   key={`${s.owner}/${s.repo}`}
                   type="button"
-                  className="chip shrink-0"
+                  className="chip shrink-0 py-1"
+                  title={`${s.owner}/${s.repo}`}
+                  aria-label={`${s.label}, ${s.owner}/${s.repo}`}
                   onClick={() => {
                     setText(`github.com/${s.owner}/${s.repo}`);
                     void loadRepo({ owner: s.owner, repo: s.repo });
                   }}
                 >
-                  <span className="font-mono text-[11.5px]">
-                    {s.owner}/{s.repo}
-                  </span>
-                  <span className="text-[11px] text-ink-faint">{s.note}</span>
+                  <RepoAvatar owner={s.owner} size={16} />
+                  <span className="text-[12px]">{s.label}</span>
                 </button>
               ))}
             </div>

@@ -31,6 +31,7 @@ export function RepoAvatar({ owner, size = 32 }: { owner: string; size?: number 
     <img
       src={`https://github.com/${encodeURIComponent(owner)}.png?size=${size * 2}`}
       alt=""
+      loading="lazy"
       width={size}
       height={size}
       className="shrink-0 rounded-md bg-white/[0.05] ring-1 ring-white/10"

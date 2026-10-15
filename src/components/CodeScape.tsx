@@ -15,6 +15,7 @@ import { InfoPanel } from "./ui/InfoPanel";
 import { SearchPalette } from "./ui/SearchPalette";
 import { RepoPanel } from "./ui/RepoPanel";
 import { HelpPanel } from "./ui/HelpPanel";
+import { LibraryPanel } from "./ui/LibraryPanel";
 import { GuidePanel } from "./ui/GuidePanel";
 import { JourneyBar } from "./ui/JourneyBar";
 import { ControlsHint } from "./ui/ControlsHint";
@@ -139,6 +140,7 @@ export function CodeScape() {
         {phase === "city" && <JourneyBar />}
         <SearchPalette />
         <HelpPanel />
+        <LibraryPanel />
         {phase === "city" && assembled && <ControlsHint />}
         {failure && <WorldFallback reason={failure} />}
       </div>

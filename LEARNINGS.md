@@ -66,3 +66,12 @@ Format: `## YYYY-MM-DD HH:MM TZ — problem` then **Symptom**, **Cause**, **Fix 
 - **The Next build of a fresh worktree has no route types** (`PageProps`, `LayoutProps`), so `tsc` fails until `pnpm exec next typegen` (or dev/build) has run.
 - **preview_start reads launch.json from the session's project folder,** not from a worktree. To serve a worktree's build, point a config at it (`next start <worktree> -p …`).
 - **Server-side WASM on Vercel:** `public/` isn't in a function's filesystem unless traced. Add `outputFileTracingIncludes` and check `.next/server/app/<route>/route.js.nft.json`.
+
+## 2026-10-15 19:10 WAT — Repository library: data and dialog pitfalls
+- **The anonymous GitHub API allows 60 requests an hour per IP, shared with the browser you test in.** Measuring 50 repo trees used it all. Check existence with `curl -L https://github.com/owner/repo` (no quota; the final URL shows renames, and the page says "archived by the owner" when archived), and save tree JSON to the scratchpad so you never fetch twice.
+- **Raw tree counts overstate what CodeScape shows.** moby/moby has 13,289 blobs but 3,373 mapped files once `vendor/` is excluded. Run the real pipeline: bundle a scratch script with esbuild (`alias: { "@": "./src" }`, plus a `createRequire` banner so `web-tree-sitter` resolves) and call `buildRepoModel` and `planTrace` on the saved trees.
+- **`useIsMobile()` is false on the first render.** A motion element whose variants differ by breakpoint starts the desktop animation, then switches; if the phone variant has no `opacity` target, opacity freezes mid-fade (we saw 0.4). Key the element on the breakpoint (`key={mobile ? "m" : "d"}`, as `Sheet` does), give both variants the same properties, and re-run focus effects on the remount.
+- **A `backdrop-filter` (or opacity below 1) on a modal's scrim makes it a backdrop root**, so the glass panel inside blurs only the empty scrim and the page shows through sharp. Keep the scrim a plain colour.
+- **`.row-btn` (and other unlayered classes in `globals.css`) beat Tailwind utilities.** `items-start` on a `.row-btn` stays `center`; lay out content in an inner element.
+- **Playwright ignores `aria-modal`.** `getByRole` still finds landing buttons behind an open dialog; scope locators to the dialog.
+- **Headless SwiftShader runs motion at a few frames per second.** Screenshots taken a second after opening catch panels mid-fade. Wait until the element's computed opacity is 1 and its transform is `none` before judging.

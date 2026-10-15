@@ -20,3 +20,18 @@ test("respects reduced motion: the city is ready almost immediately", async ({ p
   expect(Date.now() - started).toBeLessThan(30_000);
   await expect(page.getByRole("region", { name: "Guide" })).toBeVisible();
 });
+
+test("the repository library opens, searches and closes", async ({ page }) => {
+  await page.route("https://api.github.com/**", (route) => route.abort());
+  await page.goto("/");
+  await page.getByRole("button", { name: /Browse all \d+/ }).click();
+  const library = page.getByRole("dialog", { name: "Explore famous codebases" });
+  await expect(library).toBeVisible();
+  await expect(page.locator("#library-search")).toBeFocused();
+  await page.locator("#library-search").fill("docker");
+  await expect(library.locator("[data-library-item]")).toHaveCount(1);
+  await page.keyboard.press("ArrowDown");
+  await expect(library.getByRole("button", { name: "Docker Engine (Moby), moby/moby" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(library).toHaveCount(0);
+});

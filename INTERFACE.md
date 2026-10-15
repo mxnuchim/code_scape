@@ -101,3 +101,16 @@ Interaction colours (`WORLD` in `src/theme/palette.ts`): hover is white, selecti
 - **The command is literal and safe to paste:** the URL is quoted (zsh), the server name is `codescape-<repo>` slugged, and `?ref=` is added only when the city isn't on the default branch.
 - **Copy buttons share one component** (`CopyButton` in `common.tsx`), labelled with what they copy ("Copy path", "Copy command") and confirming with "Copied" for 1.4 s.
 - **The footnote states the limit:** public repositories only; private code runs locally.
+
+### 2026-10-15 19:10 WAT — Repository library (`LibraryPanel`)
+- **The landing card leads with famous codebases.** "Start with a famous codebase" shows five headline picks (`FEATURED` in `src/lib/repoLibrary.ts`) as chips with the owner's GitHub avatar and a product name ("X's algorithm", "Docker"). An accent text button, "Browse all 50", opens the library. The old dull samples (flask, zustand, express, vite) are gone.
+- **The library is a modal dialog**, not a `Sheet`: it has its own search field and a long list, so it needs a focus trap. It slides in from the right on desktop (460 px, full height) and up from the bottom on phones (full height, 8 px inset), over a `bg-black/45` scrim. It is `panel: "library"` in the store, so Esc and the other panels behave as they do for Help.
+- **Layout:** header (eyebrow, title, one line of copy, close), search field, category chips (`aria-pressed`), then the list grouped by category with sticky category headers, then a footer legend. Each entry is one `row-btn`: avatar, product name, `owner/repo` in mono, a one-line hook, then language swatch · file count · depth badge.
+- **Depth badges say what the browser will show**, derived from measured counts by `analysisHint()`:
+  - FULL ANALYSIS (hairline white): every parseable file fits in the browser's 300-file budget.
+  - PARTIAL (faint hairline): more than 300 parseable files, a truncated listing, or mostly an unparsed language with some parsed files.
+  - MAP ONLY (dashed): mostly an unparsed language (C, for example); structure only, no imports traced.
+  The full sentence is in the badge's `title` and in the entry's screen-reader description.
+- **Honesty rules for the library:** only real, public, unarchived repositories; never a closed product (Instagram, Snapchat, the Facebook app). "The code behind" only where literally true, and dated when it may be stale ("as X published them in 2023"). File counts come from CodeScape's own model, so they match the city; a truncated listing shows "≥" and "listing truncated". The footer says when and how counts were measured.
+- **Keyboard:** focus starts in search (on touch screens the dialog itself takes focus, so the keyboard doesn't cover the list); ↓/↑ move between entries and back to search; Tab is trapped; Esc closes. Search and filter reset each time the dialog opens.
+- **Gotcha:** don't put `backdrop-filter` (or a fading `opacity`) on the scrim. Either makes the scrim a backdrop root, and the panel's glass then shows the page behind it unblurred.

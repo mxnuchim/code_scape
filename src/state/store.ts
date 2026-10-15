@@ -43,7 +43,7 @@ export interface JourneyFocus {
   step: number;
 }
 
-export type Panel = "repo" | "help" | "guide" | null;
+export type Panel = "repo" | "help" | "guide" | "library" | null;
 
 export interface CameraApi {
   flyToBuilding(id: string): void;
