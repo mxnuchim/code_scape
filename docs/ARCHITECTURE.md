@@ -26,6 +26,7 @@ Dependencies point downward only: the UI depends on the engine, and the engine k
 | `src/lib/analysis/code/` | Parsing (`parser.ts`, `extract-*.ts`), the index and the resolver (`buildIndex.ts`), `overview.ts`, `journeys.ts`, `onboarding.ts` and `queries.ts` | Node and browser |
 | `src/lib/analysis/workspace.ts` | `analyzeRepository()` / `analyzeModel()`: the single entry point, plus the `WorkspaceAnalysis` contract | Node and browser |
 | `src/lib/layout/` | Deterministic city layout (squarified treemap). Plain numbers, no Three.js. | Node and browser |
+| `src/lib/remote/` | `GitHubWorkspace`: a public GitHub repository analysed on the server for the hosted MCP endpoint, with an in-memory cache | Node only |
 | `src/lib/local/` | Safe filesystem access (`safety.ts`), the .gitignore-aware walk (`walk.ts`), the git revision read from files (`revision.ts`), `LocalWorkspace` (caching and freshness), WASM location | Node only |
 | `src/mcp/` | MCP server, tools, target resolution and result bounding | Node only |
 | `src/cli/` | The `codescape` command and the viewer launcher | Node only |
@@ -80,9 +81,14 @@ If the runtime or a grammar fails to load, `fallback.ts` extracts imports with l
 
 ## The MCP server
 
-`src/mcp/server.ts` registers seven read-only tools (`registerTool` with zod v4 input and output schemas), the `codescape://overview` resource, and the `onboard` and `investigate` prompts. Each tool is thin: it resolves its target (`targets.ts`), calls the engine's queries, and returns `structuredContent` together with a compact text rendering. Results are capped at 24,000 characters, and expected failures become `isError` results the model can act on.
+`src/mcp/server.ts` registers (in `registerCodescape`) seven read-only tools (`registerTool` with zod v4 input and output schemas), the `codescape://overview` resource, and the `onboard` and `investigate` prompts. Each tool is thin: it resolves its target (`targets.ts`), calls the engine's queries, and returns `structuredContent` together with a compact text rendering. Results are capped at 24,000 characters, and expected failures become `isError` results the model can act on.
 
-The analysed root is chosen in this order: `--root`, then `CODESCAPE_ROOT`, then `CLAUDE_PROJECT_DIR`, then the working directory. Stdout carries only JSON-RPC; `console.log` is redirected to stderr.
+The tools depend only on `CodeWorkspace` (`context.ts`): analysis, redacted excerpts and content search. Two implementations serve them:
+
+- **Local, over stdio:** `LocalWorkspace` (`src/lib/local/workspace.ts`), started by `codescape mcp`.
+- **Hosted, over Streamable HTTP:** `GitHubWorkspace` (`src/lib/remote/githubWorkspace.ts`), served by `src/app/api/mcp/[owner]/[repo]/route.ts` through `createRemoteMcpHandler` (`src/mcp/remote.ts`, built on the SDK's stateless `createMcpHandler`). Each request builds a fresh `McpServer`; the expensive part, the analysis, is cached per `owner/repo@ref` for 15 minutes per server instance (up to 24 repositories). It reads the tree through the REST API (with `GITHUB_TOKEN` when set) and up to 600 files from `raw.githubusercontent.com`. The grammar WASM files ship with that function through `outputFileTracingIncludes` in `next.config.ts`. Hosted `open_in_codescape` only builds a link to the website's city.
+
+For the local server, the analysed root is chosen in this order: `--root`, then `CODESCAPE_ROOT`, then `CLAUDE_PROJECT_DIR`, then the working directory. Stdout carries only JSON-RPC; `console.log` is redirected to stderr.
 
 `open_in_codescape` uses `src/cli/viewer.ts` to find or start the viewer, which is the production Next.js app run as `next start -H 127.0.0.1` with `CODESCAPE_ROOT` set. The launcher probes `/api/workspace/status` to reuse a viewer that already serves the same root. The viewer is a child process, so it stops with the MCP server.
 

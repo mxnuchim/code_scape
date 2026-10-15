@@ -1,17 +1,43 @@
 # CodeScape in Claude Code (MCP)
 
-CodeScape ships a local [MCP](https://modelcontextprotocol.io) server. Claude Code uses it to understand the repository you have open: what the project is, where things live, how a request flows, and what depends on what. Every answer comes with `path:line` evidence. Claude can also give you a link that opens the same location in CodeScape's 3D map.
+CodeScape is an [MCP](https://modelcontextprotocol.io) server. Claude Code uses it to understand a repository: what the project is, where things live, how a request flows, and what depends on what. Every answer comes with `path:line` evidence. Claude can also give you a link that opens the same location in CodeScape's 3D map.
 
-- **Everything stays local.** The server reads the checked-out repository from disk, including uncommitted changes and private code. Nothing is uploaded, and the server makes no network requests.
-- **It is read-only.** No repository code is ever run, and `git` isn't run either: branch and commit are read from `.git` files.
+There are two ways to connect. Both serve the same seven tools from the same analysis engine.
 
-## Requirements
+| | Hosted (public repositories) | Local (your checkout) |
+|---|---|---|
+| Install | Nothing: one `claude mcp add` command | Clone and build CodeScape once |
+| Repositories | Any public GitHub repository | The folder you open, private code and uncommitted changes included |
+| Reads | GitHub, from the CodeScape site's server | Your disk; no network requests |
+| Map links | The CodeScape website | A viewer on `127.0.0.1` |
+
+Either way it is **read-only**: no repository code is ever run.
+
+## Hosted: a public GitHub repository
+
+Open the repository's city on the CodeScape site, click its name (top left), and copy the command under **Ask Claude about it**. Or write it yourself:
+
+```bash
+claude mcp add --transport http codescape-flask "https://<your-codescape-site>/api/mcp/pallets/flask"
+```
+
+- The endpoint is `/api/mcp/<owner>/<repo>`. Add `?ref=<branch|tag|commit>` to pin a version; otherwise the default branch is used. Keep the URL in quotes, because zsh treats `?` as a pattern.
+- Each repository gets its own server name (`codescape-flask` above), so you can add several. Add `--scope user` to make one available in every project.
+- The first tool call reads and parses the repository (up to 600 source files), which takes a few seconds for most repositories. Later calls reuse that analysis for 15 minutes.
+- Other MCP clients that support remote servers over Streamable HTTP, such as custom connectors on claude.ai, can use the same URL.
+- Running your own copy of the site? See [DEPLOY.md](DEPLOY.md).
+
+## Local: your checkout, including private code
+
+The local server reads the checked-out repository from disk, including uncommitted changes and private code. Nothing is uploaded, and it makes no network requests. `git` isn't run either: branch and commit are read from `.git` files.
+
+### Requirements
 
 - Node.js 20.9 or later (22 recommended; see `.nvmrc`)
 - pnpm 10
 - Claude Code
 
-## 1. Build CodeScape once
+### 1. Build CodeScape once
 
 ```bash
 git clone <this repository> codescape
@@ -27,7 +53,7 @@ Check that it can analyse a repository:
 node dist/cli.mjs analyze --root /path/to/any/repo
 ```
 
-## 2. Add the server to Claude Code
+### 2. Add the server to Claude Code
 
 Run this **inside the repository you want to explore**, using the absolute path to your CodeScape checkout:
 
@@ -56,7 +82,7 @@ Claude Code asks you to approve project-scoped servers the first time it sees th
 
 Restart Claude Code (or run `/mcp`) and check that `codescape` shows as connected.
 
-## Which folder is analysed?
+### Which folder is analysed?
 
 The MCP server analyses one folder, chosen in this order:
 
@@ -73,7 +99,7 @@ claude mcp add codescape-api -- node /absolute/path/to/codescape/dist/cli.mjs mc
 
 Every tool result starts with the repository name, branch and commit, plus when it was analysed. That way you can always see what Claude is looking at.
 
-## 3. Use it
+## Using it
 
 Ask questions naturally; Claude chooses the tools. For example:
 
@@ -99,7 +125,7 @@ You can attach the overview as context with `@codescape:codescape://overview`.
 | `get_dependencies` | Lists upstream and downstream relationships (imports and resolved calls), each with the line where it is written. `depth` 2–3 gives transitive impact. |
 | `trace_code_path` | Follows an operation through resolved calls, in order, down to where it leaves the repository (for example, into a database package). Places it can't follow are listed as gaps. |
 | `get_onboarding_guide` | Builds a reading order with a reason for every item, plus key components, how modules connect, a representative journey, run and test commands, and questions to explore next. It can focus on one folder. |
-| `open_in_codescape` | Starts the local viewer if needed and returns a deep link to a file, declaration or journey in the 3D map. |
+| `open_in_codescape` | Returns a deep link to a file, declaration or journey in the 3D map: on the CodeScape website when hosted, or in a local viewer it starts if needed. |
 
 ### How to read the answers
 
@@ -113,7 +139,9 @@ Nothing is inferred from runtime behaviour, because CodeScape never runs your co
 
 ## The 3D viewer
 
-`open_in_codescape` starts the production web app on `127.0.0.1`, on port 4317 or the next free port. The viewer:
+With the hosted server, `open_in_codescape` returns a link to the repository's city on the CodeScape website.
+
+With the local server, `open_in_codescape` starts the production web app on `127.0.0.1`, on port 4317 or the next free port. The viewer:
 
 - serves only the repository the MCP server analyses;
 - is reused across calls;
@@ -129,7 +157,8 @@ node /absolute/path/to/codescape/dist/cli.mjs view --root /path/to/repo --open
 
 ## Limits
 
-- **Parsing caps.** Up to 4,000 source files and 40 MB are parsed, entry points and source first. Files over 512 KB are skipped. The tree walk stops at 100,000 entries. Anything left out is reported in each overview's limitations.
+- **Hosted: public repositories only.** A private or missing repository returns a tool error that says so. The hosted server parses up to 600 files under a 40-second budget, and the overview's limitations say what was left out.
+- **Local parsing caps.** Up to 4,000 source files and 40 MB are parsed, entry points and source first. Files over 512 KB are skipped. The tree walk stops at 100,000 entries. Anything left out is reported in each overview's limitations.
 - **Withheld files.** Files that look like secrets (`.env*`, keys, certificates, credentials, anything named `*secret*`) are listed but never read. Text that does get returned passes through secret redaction.
 - **Unsupported languages.** Kotlin, C#, Ruby, PHP and other languages appear in the map without symbols or dependencies for now.
 - **Staleness.** Every tool call checks file sizes and modification times. If anything changed, the analysis is rebuilt and only the changed files are re-parsed. When that happens, the result says `re-analysed: files changed`.
@@ -138,6 +167,9 @@ node /absolute/path/to/codescape/dist/cli.mjs view --root /path/to/repo --open
 
 | Symptom | Fix |
 |---|---|
+| Hosted: "GitHub's API rate limit was reached" | The site has no `GITHUB_TOKEN`, or it has used its hourly allowance. Wait for the time the message gives. If you run the site, set `GITHUB_TOKEN` (see [DEPLOY.md](DEPLOY.md)). |
+| Hosted: "wasn't found, or it is private" | Check the owner and repository name in the URL. For private code, use the local server. |
+| Hosted: `zsh: no matches found` when adding | Put the URL in quotes. |
 | `codescape` isn't listed in `/mcp` | Check the absolute path to `dist/cli.mjs`, and that you ran `pnpm build:cli`. Run the same command by hand: `node …/dist/cli.mjs mcp` should print `[codescape] MCP server ready for …` to stderr and then wait for input. |
 | The wrong repository is analysed | Check the first line of any tool result. Pin the folder with `--root` (see [Which folder is analysed?](#which-folder-is-analysed)). |
 | `open_in_codescape` says the web app hasn't been built | Run `pnpm build` in the CodeScape folder. |

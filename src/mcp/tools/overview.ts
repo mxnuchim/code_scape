@@ -35,7 +35,7 @@ export function registerOverview(server: McpServer, ctx: ToolContext) {
     {
       title: "Codebase overview",
       description:
-        "Summarise the repository from local analysis: what kind of project it is, technologies (from manifests), main modules and their likely roles, entry points, HTTP routes, run/test commands, test locations, module boundaries, detected code journeys and the limits of the analysis. Every claim is labelled fact / static-analysis / heuristic with path:line evidence. Call this first when orienting in an unfamiliar repository.",
+        "Summarise the repository from static analysis: what kind of project it is, technologies (from manifests), main modules and their likely roles, entry points, HTTP routes, run/test commands, test locations, module boundaries, detected code journeys and the limits of the analysis. Every claim is labelled fact / static-analysis / heuristic with path:line evidence. Call this first when orienting in an unfamiliar repository.",
       inputSchema: z.object({}),
       outputSchema: OverviewOutput,
       annotations: { readOnlyHint: true, openWorldHint: false },

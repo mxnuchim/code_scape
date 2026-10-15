@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { LANGUAGES } from "@/lib/analysis/languages";
 import { languageColor } from "@/theme/palette";
 import { formatNumber } from "@/lib/format";
+import { IconCheck, IconCopy } from "./icons";
 
 export function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(false);
@@ -87,6 +88,29 @@ export function Section({ title, children, aside }: { title: string; children: R
       </div>
       {children}
     </section>
+  );
+}
+
+/** A quiet button that copies `text` and confirms for a moment. */
+export function CopyButton({ text, label }: { text: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      className="btn btn-quiet px-3 py-2 text-[0.8rem]"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1400);
+        } catch {
+          // Clipboard can be unavailable (e.g. insecure context); nothing else to do.
+        }
+      }}
+    >
+      {copied ? <IconCheck size={15} /> : <IconCopy size={15} />}
+      {copied ? "Copied" : label}
+    </button>
   );
 }
 

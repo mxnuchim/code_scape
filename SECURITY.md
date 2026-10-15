@@ -25,15 +25,25 @@ CodeScape analyses code you point it at, and treats that code as **untrusted inp
 - Source excerpts, search snippets and MCP results pass through secret redaction: private keys, common token formats, and `password = "…"`-style assignments.
 - MCP tool results are capped at 24,000 characters.
 
+**The hosted MCP endpoint** (`/api/mcp/<owner>/<repo>` on a deployed site)
+
+- It reads **public** GitHub repositories only: the REST API for metadata and the tree, `raw.githubusercontent.com` for contents, with the same limits on likely secrets, size, file count (600) and time as above. It never executes code.
+- `owner`, `repo` and `ref` are validated against GitHub's naming rules before any request is made.
+- The analysis and the files it read are kept in memory for 15 minutes per server instance, then dropped. Nothing is written to disk or logged beyond platform request logs.
+- `GITHUB_TOKEN`, when set, is sent to `api.github.com` only, never to raw file requests or to MCP clients. Use a fine-grained token with read-only access to public repositories.
+- Anyone who can reach the site can make it analyse a public repository. Rate-limit `/api/mcp/*` at the platform (see docs/DEPLOY.md).
+- `open_in_codescape` only builds a link to the website when hosted; it never starts a process or opens a browser on the server.
+
 **Where it listens**
 
-- The MCP server speaks JSON-RPC on stdio only.
+- The local MCP server speaks JSON-RPC on stdio only.
 - The local viewer binds to `127.0.0.1`. Its API rejects requests whose `Host` isn't a loopback name (which blocks DNS rebinding), and rejects cross-site requests (`Sec-Fetch-Site`, `Origin`). It sends no CORS headers.
 - The repository root comes from `CODESCAPE_ROOT` when the viewer starts. No request can change it.
 
 **What leaves your machine**
 
-- In local and MCP mode: nothing. No telemetry, and no network requests.
+- In local mode and with the local MCP server: nothing. No telemetry, and no network requests.
+- With the hosted MCP endpoint, your MCP client sends tool calls (questions about the repository, not your code) to the site, and the site reads the public repository from GitHub.
 - In GitHub mode, the browser calls `api.github.com` and `raw.githubusercontent.com` for the repository you entered, and nothing else.
 
 ## Known limitations
