@@ -25,20 +25,22 @@ function openInBrowser(url: string): boolean {
 }
 
 export function registerOpenViewer(server: McpServer, ctx: ToolContext) {
+  const hosted = ctx.mode === "github";
   server.registerTool(
     "open_in_codescape",
     {
       title: "Open in CodeScape",
-      description:
-        "Show a file, folder, declaration or code journey in the CodeScape 3D map of this repository. Starts the local viewer (127.0.0.1) if needed and returns a deep link; give the link to the user. Set openBrowser to true only if the user asked to open it.",
+      description: hosted
+        ? "Get a link that shows a file, folder, declaration or code journey in the CodeScape 3D map of this repository on the CodeScape website. Give the link to the user."
+        : "Show a file, folder, declaration or code journey in the CodeScape 3D map of this repository. Starts the local viewer (127.0.0.1) if needed and returns a deep link; give the link to the user. Set openBrowser to true only if the user asked to open it.",
       inputSchema: z.object({
         target: z.string().max(400).optional().describe("File or folder path, symbol id (path#Name) or declaration name to select"),
         journey: z.string().max(200).optional().describe("Journey id to play (from get_codebase_overview or trace_code_path)"),
-        openBrowser: z.boolean().default(false).describe("Also open the link in the default browser"),
+        openBrowser: z.boolean().default(false).describe(hosted ? "Ignored by the hosted server: give the link to the user instead" : "Also open the link in the default browser"),
       }),
       outputSchema: OpenOutput,
-      // Starts a local process (the viewer); it never changes repository files.
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+      // Locally this starts a process (the viewer); it never changes repository files. Hosted, it only builds a link.
+      annotations: { readOnlyHint: hosted, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     guarded(async ({ target: raw, journey, openBrowser }) => {
       const state = await ctx.workspace.get();
@@ -64,10 +66,11 @@ export function registerOpenViewer(server: McpServer, ctx: ToolContext) {
         return failure(`The CodeScape viewer could not be started: ${err instanceof Error ? err.message : String(err)}`);
       }
       const url = ctx.viewer.link(status.url, { path, symbol, journey });
-      const openedBrowser = openBrowser ? openInBrowser(url) : false;
+      // Never spawn a browser from the hosted server: it would run on the server, not for the user.
+      const openedBrowser = openBrowser && !hosted ? openInBrowser(url) : false;
       const what = journey ? `journey ${journey}` : symbol ?? path ?? "the repository overview";
       const text = [
-        `CodeScape ${status.started ? "started" : "is running"} at ${status.url} (local only).`,
+        hosted ? `CodeScape map: ${status.url}` : `CodeScape ${status.started ? "started" : "is running"} at ${status.url} (local only).`,
         `Open ${what}: ${url}`,
         openedBrowser ? "Opened in the default browser." : "Share this link with the user; it opens the 3D map with that location selected.",
       ].join("\n");

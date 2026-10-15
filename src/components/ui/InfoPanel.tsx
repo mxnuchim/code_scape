@@ -14,8 +14,8 @@ import { formatBytes, formatNumber, plural } from "@/lib/format";
 import { useCity, type TraceState } from "@/state/store";
 import { CATEGORY_COLORS, CATEGORY_META, languageColor } from "@/theme/palette";
 import { relationsFor } from "../world/Connections";
-import { Badge, CompositionBar, Fact, Section, languageBar, languageName } from "./common";
-import { ArchetypeGlyph, IconCheck, IconCopy, IconExternal, IconFile, IconFolder, IconIsolate, IconTarget } from "./icons";
+import { Badge, CompositionBar, CopyButton, Fact, Section, languageBar, languageName } from "./common";
+import { ArchetypeGlyph, IconExternal, IconFile, IconFolder, IconIsolate, IconTarget } from "./icons";
 import { Sheet } from "./Sheet";
 import { CodeInspector } from "./CodeInspector";
 import { BasisBadge } from "./Evidence";
@@ -49,28 +49,6 @@ function Breadcrumbs({ path, isFile }: { path: string; isFile: boolean }) {
       })}
       {isFile && <span className="px-1 text-ink-soft">{parts[parts.length - 1]}</span>}
     </nav>
-  );
-}
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      type="button"
-      className="btn btn-quiet px-3 py-2 text-[0.8rem]"
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(text);
-          setCopied(true);
-          window.setTimeout(() => setCopied(false), 1400);
-        } catch {
-          // Clipboard can be unavailable (e.g. insecure context); nothing else to do.
-        }
-      }}
-    >
-      {copied ? <IconCheck size={15} /> : <IconCopy size={15} />}
-      {copied ? "Copied" : "Copy path"}
-    </button>
   );
 }
 
@@ -413,7 +391,7 @@ export function InfoPanel() {
         footer = (
           <div className="flex flex-wrap gap-2">
             {b.id !== "#overflow" && <OpenSource path={b.id} dir={isBlock} primary />}
-            {b.id !== "#overflow" && <CopyButton text={b.id} />}
+            {b.id !== "#overflow" && <CopyButton text={b.id} label="Copy path" />}
             <button type="button" className="btn btn-quiet px-3 py-2 text-[0.8rem]" onClick={() => camera?.flyToBuilding(b.id)} title="Focus (F)">
               <IconTarget size={15} /> Focus
             </button>

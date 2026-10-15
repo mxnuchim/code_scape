@@ -95,3 +95,9 @@ Interaction colours (`WORLD` in `src/theme/palette.ts`): hover is white, selecti
 - **Language lists in UI copy come from one place.** `PARSED_LANGUAGES_AND` / `PARSED_LANGUAGES_OR` in `src/lib/analysis/languages.ts` ("JavaScript, TypeScript, Python, Go, Rust and Java"). HelpPanel, RepoPanel, InfoPanel, GuidePanel and the HUD use them; never hard-code a language list again (the HUD and InfoPanel had drifted and left out Go).
 - **A call on an interface or trait shows as a journey gap**, not a dead end and not a guessed implementation: the step lands on the declaration, and the journey bar shows the amber ⚠ gap line ("…is declared on an interface; the implementation is chosen at runtime and isn't followed") with its `path:line`. Same visual as other gaps.
 - **Route and main labels name the language's convention**: "spring route", "axum route", "rust-attribute route", and entry points read "`fn main` in a binary crate root" / "`public static void main` method".
+
+## 2026-10-15 18:31 WAT — "Ask Claude about it"
+- **GitHub cities offer the Claude connection in the repository panel**, right after the Repository facts: one line of explanation, the full `claude mcp add --transport http codescape-<repo> "<site>/api/mcp/<owner>/<repo>"` command in a wrapped mono block (`bg-black/30`, hairline ring, like source excerpts), and two quiet buttons: **Copy command** and **Copy server URL**. Local cities don't show it, because the local MCP server is set up from the terminal.
+- **The command is literal and safe to paste:** the URL is quoted (zsh), the server name is `codescape-<repo>` slugged, and `?ref=` is added only when the city isn't on the default branch.
+- **Copy buttons share one component** (`CopyButton` in `common.tsx`), labelled with what they copy ("Copy path", "Copy command") and confirming with "Copied" for 1.4 s.
+- **The footnote states the limit:** public repositories only; private code runs locally.

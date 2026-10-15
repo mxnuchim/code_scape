@@ -39,14 +39,14 @@ What sets it apart is a combination that none of the tools above offers:
 
 1. **One model for the human and the agent.** Claude's answers through MCP and the 3D map come from the same analysis, use the same ids, and cite the same `path:line`. "Show me" is a link to the same thing Claude just explained.
 2. **Grounded, not generated.** Structure comes from a parser and binding resolution, not from an LLM summarising files. Every claim carries a basis (fact, static analysis or heuristic), and journeys show gaps instead of plausible inventions.
-3. **Local-first and permissively licensed.** It reads your working tree, uncommitted changes included, makes no network calls and has no account. MIT licensed.
+3. **No account, and local when you need it.** Public repositories work from a link with no install. Private code runs entirely on your machine: it reads your working tree, uncommitted changes included, and makes no network calls. MIT licensed.
 4. **Onboarding as a workflow, not a picture.** A reading order with reasons, journeys from entry points to package boundaries, and run and test commands taken from manifests.
 
 The 3D city is the interface, not the point. It earns its place when the map makes a path through the code memorable: you walk a journey, step by step, across buildings you can then find again.
 
 ## Adoption plan
 
-1. **Make installation one command.** Publish `codescape` to npm, so `claude mcp add codescape -- npx -y codescape mcp` works and nobody needs to clone the repository. List it in the MCP server registry. *(Not done yet: publishing is an outward-facing step for the maintainer.)*
+1. **Make connecting one command.** Every public repository's city shows a `claude mcp add --transport http …` command for the hosted endpoint, so nobody installs anything (shipped 2026-10-15). Publishing an npm package for the local server was dropped on 2026-10-15: private-code users clone the repository instead. Next: list the hosted endpoint in the MCP server registry once it has a permanent domain.
 2. **Show it, don't tell it.** A 60-second recording of "I just joined, how does checkout work?": Claude answers with citations, then the journey plays in the city. Use the screenshots in `docs/images/` as a starting point.
 3. **Meet people where they work.** Share examples of real, popular open-source repositories with deep links to their journeys.
 4. **Ask for help where it's easiest.** Language support is the clearest contribution path: one extractor file plus fixture tests per language.

@@ -1,16 +1,49 @@
 /**
  * What every tool needs: the workspace being analysed, the viewer launcher,
  * and helpers to shape bounded, predictable results.
+ *
+ * The same tools serve two workspaces: a checkout on this machine
+ * (`LocalWorkspace`, stdio server) and a public GitHub repository read over
+ * HTTPS (`GitHubWorkspace`, the hosted /api/mcp endpoint).
  */
 import * as z from "zod/v4";
 import type { CallToolResult } from "@modelcontextprotocol/server";
-import type { LocalWorkspace, AnalysisState } from "../lib/local/workspace";
+import type { RepoModel } from "../lib/analysis/types";
+import type { WorkspaceAnalysis } from "../lib/analysis/workspace";
 import { PathAccessError } from "../lib/local/safety";
 import type { ViewerLauncher } from "../cli/viewer";
 
+export interface WorkspaceState {
+  analysis: WorkspaceAnalysis;
+  model: RepoModel;
+  /** True when this call re-analysed because files changed since the previous analysis. */
+  refreshed: boolean;
+}
+
+export interface Excerpt {
+  path: string;
+  startLine: number;
+  endLine: number;
+  totalLines: number;
+  text: string;
+  redactions: number;
+}
+
+/** A repository the tools can read: analysis, redacted excerpts and content search. */
+export interface CodeWorkspace {
+  /** Absolute path on this machine, or `github.com/owner/repo`. */
+  readonly root: string;
+  readonly name: string;
+  get(): Promise<WorkspaceState>;
+  excerpt(path: string, startLine?: number, endLine?: number, maxLines?: number): Promise<Excerpt>;
+  searchContent(terms: string[], limit?: number): { path: string; line: number; text: string; matched: number }[];
+}
+
 export interface ToolContext {
-  workspace: LocalWorkspace;
+  workspace: CodeWorkspace;
   viewer: ViewerLauncher;
+  /** "local": a checkout on this machine. "github": a public repository read from GitHub by the hosted server. */
+  mode: "local" | "github";
 }
 
 /** Hard ceiling for any single tool result, well under Claude Code's warning threshold. */
@@ -21,7 +54,7 @@ export const BasisSchema = z.enum(["fact", "static-analysis", "heuristic"]).desc
 );
 
 export const WorkspaceInfoSchema = z.object({
-  root: z.string().describe("Absolute path of the analysed repository"),
+  root: z.string().describe("Absolute path of the analysed repository, or github.com/owner/repo for the hosted server"),
   name: z.string(),
   branch: z.string().nullable(),
   commit: z.string().nullable(),
@@ -30,14 +63,16 @@ export const WorkspaceInfoSchema = z.object({
   refreshed: z.boolean().describe("True when files changed since the previous call and the analysis was rebuilt"),
 });
 
-export function workspaceInfo(ctx: ToolContext, state: AnalysisState): z.infer<typeof WorkspaceInfoSchema> {
-  const origin = state.analysis.snapshot.origin;
+export function workspaceInfo(ctx: ToolContext, state: WorkspaceState): z.infer<typeof WorkspaceInfoSchema> {
+  const { snapshot } = state.analysis;
+  const origin = snapshot.origin;
   const revision = origin?.kind === "local" ? origin.revision : null;
+  const githubRef = origin?.kind === "local" ? null : snapshot.ref;
   return {
     root: ctx.workspace.root,
     name: ctx.workspace.name,
-    branch: revision?.branch ?? null,
-    commit: revision?.commit ?? null,
+    branch: revision?.branch ?? (githubRef && !/^[0-9a-f]{40}$/.test(githubRef) ? githubRef : null),
+    commit: revision?.commit ?? (githubRef && /^[0-9a-f]{40}$/.test(githubRef) ? githubRef : null),
     analyzedAt: new Date(state.analysis.analyzedAt).toISOString(),
     fingerprint: state.analysis.fingerprint,
     refreshed: state.refreshed,

@@ -5,7 +5,7 @@
 import { normalizeRepoPath, PathAccessError } from "../lib/local/safety";
 import { indexLookup, searchSymbols } from "../lib/analysis/code/queries";
 import type { CodeSymbol } from "../lib/analysis/code/types";
-import type { AnalysisState } from "../lib/local/workspace";
+import type { WorkspaceState } from "./context";
 
 export type Target =
   | { kind: "file"; path: string }
@@ -22,7 +22,7 @@ export class TargetError extends Error {
   }
 }
 
-export function resolveTarget(state: AnalysisState, raw: string): Target {
+export function resolveTarget(state: WorkspaceState, raw: string): Target {
   const input = raw.trim();
   const { model, analysis } = state;
   const lookup = indexLookup(analysis.index);

@@ -1,6 +1,8 @@
 /**
- * The CodeScape MCP server: local, read-only code understanding for the
- * repository at `root`, using the same analysis engine as the web app.
+ * The CodeScape MCP server: read-only code understanding, using the same
+ * analysis engine as the web app. `createCodescapeServer` serves a checkout on
+ * this machine over stdio; `src/mcp/remote.ts` serves public GitHub
+ * repositories from the website. Both register the same tools here.
  */
 import * as z from "zod/v4";
 import { McpServer } from "@modelcontextprotocol/server";
@@ -19,8 +21,19 @@ export const SERVER_NAME = "codescape";
 export const SERVER_VERSION = "0.2.0";
 
 export function serverInstructions(root: string): string {
+  return instructions(`CodeScape analyses the local repository at ${root} (and nothing else). It reads files and does not run any of them. No source code leaves this machine.`);
+}
+
+/** Instructions for the hosted server, which reads one public GitHub repository. */
+export function remoteServerInstructions(fullName: string): string {
+  return instructions(
+    `CodeScape analyses the public GitHub repository ${fullName} (and nothing else), reading its files from GitHub at the default branch unless a ref was given. It never runs any code. It cannot see local changes or private repositories.`,
+  );
+}
+
+function instructions(scope: string): string {
   return [
-    `CodeScape analyses the local repository at ${root} (and nothing else). It reads files and does not run any of them. No source code leaves this machine.`,
+    scope,
     "",
     "When to use it: orienting in an unfamiliar codebase. Typical questions are what this project is, where to start reading, how a request or operation flows, what depends on a file, and where something is implemented.",
     "",
@@ -51,10 +64,15 @@ export interface CreateServerOptions {
 export async function createCodescapeServer(options: CreateServerOptions): Promise<{ server: McpServer; context: ToolContext }> {
   const workspace = await LocalWorkspace.open(options.root, options.workspace);
   const viewer = options.viewer ?? createViewerLauncher(workspace.root);
-  const context: ToolContext = { workspace, viewer };
-
+  const context: ToolContext = { workspace, viewer, mode: "local" };
   const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION, title: "CodeScape" }, { instructions: serverInstructions(workspace.root) });
+  registerCodescape(server, context);
+  return { server, context };
+}
 
+/** Register CodeScape's tools, resource and prompts on `server` for one workspace. */
+export function registerCodescape(server: McpServer, context: ToolContext): void {
+  const { workspace } = context;
   registerOverview(server, context);
   registerFindCode(server, context);
   registerExplainModule(server, context);
@@ -147,6 +165,4 @@ export async function createCodescapeServer(options: CreateServerOptions): Promi
       ],
     }),
   );
-
-  return { server, context };
 }

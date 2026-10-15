@@ -58,3 +58,11 @@ Format: `## YYYY-MM-DD HH:MM TZ — problem` then **Symptom**, **Cause**, **Fix 
 - **`pnpm lint` also scans `.claude/worktrees/*`** (other sessions' checkouts, git-ignored), which fail lint on their own. Lint this tree with `pnpm exec eslint --ignore-pattern '.claude/**' .`.
 - **A Playwright spec that imports from another spec runs that spec's tests too.** Inline helpers in one-off specs.
 - **The user's own `next dev` blocks a second one.** For a fixture preview, use the production viewer (`node dist/cli.mjs view --root … --port 3200`, launch config `codescape-view-java-fixture`) after `pnpm build`.
+
+## 2026-10-15 18:31 WAT — Hosting the MCP server
+- **MCP SDK v2 has a fetch-native, stateless HTTP entry:** `createMcpHandler(factory)` returns `{ fetch(request) }`, builds a fresh server per request, and serves both 2025-era stateless traffic and the 2026-07-28 revision. It drops into a Next route handler unchanged. The factory gets `requestInfo` (the Request), so a per-repository URL needs no session state; cache the expensive part (the analysis) outside the server.
+- **GitHub's anonymous API limit (60 an hour per IP) is shared by every user of a server.** One afternoon of testing used it up on this machine. Production needs `GITHUB_TOKEN`; raw file reads aren't counted.
+- **Quote MCP URLs in shell commands.** zsh fails on an unquoted `?` with "no matches found".
+- **The Next build of a fresh worktree has no route types** (`PageProps`, `LayoutProps`), so `tsc` fails until `pnpm exec next typegen` (or dev/build) has run.
+- **preview_start reads launch.json from the session's project folder,** not from a worktree. To serve a worktree's build, point a config at it (`next start <worktree> -p …`).
+- **Server-side WASM on Vercel:** `public/` isn't in a function's filesystem unless traced. Add `outputFileTracingIncludes` and check `.next/server/app/<route>/route.js.nft.json`.
