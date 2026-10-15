@@ -75,3 +75,15 @@ Format: `## YYYY-MM-DD HH:MM TZ — problem` then **Symptom**, **Cause**, **Fix 
 - **`.row-btn` (and other unlayered classes in `globals.css`) beat Tailwind utilities.** `items-start` on a `.row-btn` stays `center`; lay out content in an inner element.
 - **Playwright ignores `aria-modal`.** `getByRole` still finds landing buttons behind an open dialog; scope locators to the dialog.
 - **Headless SwiftShader runs motion at a few frames per second.** Screenshots taken a second after opening catch panels mid-fade. Wait until the element's computed opacity is 1 and its transform is `none` before judging.
+
+## 2026-10-15 23:49 WAT — Camera framing and headless camera tests
+- **Exact framing has a closed form.** With a fixed camera orientation, "point p is inside the frustum" is linear in the camera position expressed in its own right/up/forward axes, so the nearest position that fits every point is a max over points plus a min over two edge pairs (`src/lib/camera/aerialView.ts`). Don't binary-search distances or use `fitToBox` (it frames a box's projection loosely and ignores HUD margins).
+- **With a 30° vertical fov the horizon is visible only when the camera pitches less than 15°.** An elevation of 25–30° shows only sea at the top of a landscape frame; 22° plus fog reads as horizon haze.
+- **`setLookAt` sets the end azimuth in (−π, π], but the current azimuth keeps every turn the loading spin made,** so a transition unwinds several turns. Call `normalizeRotations()` right after it.
+- **camera-controls reads the mouse-button mapping on pointerdown.** For modifier gestures (shift + drag to pan), set `mouseButtons.left` in a window `pointerdown` listener in the capture phase.
+- **`ACTION.TOUCH_DOLLY_SCREEN_PAN` works at runtime but is missing from camera-controls 3.1's `multiTouchAction` type;** cast it.
+- **Track held keys by `e.code`, not `e.key`.** With Shift, "=" arrives as "+" on keydown and "=" on keyup, so a `key`-based set gets stuck.
+- **A tall phone frame puts the camera 4–6× the island size away.** Fixed fog distances washed the city out and the camera left the 900-unit sky dome; fog, far plane and the dome now follow the camera.
+- **Headless SwiftShader on a loaded machine can drop to 0.25 fps.** Time-based e2e checks ("hold W for 900 ms, then expect movement") fail. Count rendered frames with `requestAnimationFrame` while a key is held, and read camera-controls' end state (`_sphericalEnd`, `_targetEnd`) instead of the eased current pose.
+- **After a dialog closes, it fades out with focus still inside.** A shortcut pressed in that window is ignored by `inDialog()`; tests must wait for the dialog to unmount.
+- **A failed Playwright test restarts the worker,** and the next spec's timing-sensitive checks (the library focus test) can then fail too. Fix the first failure before chasing the second.

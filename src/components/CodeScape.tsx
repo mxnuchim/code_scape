@@ -20,14 +20,10 @@ import { GuidePanel } from "./ui/GuidePanel";
 import { JourneyBar } from "./ui/JourneyBar";
 import { ControlsHint } from "./ui/ControlsHint";
 import { WorldFallback } from "./ui/WorldFallback";
+import { inDialog, isTyping } from "./keyboardFocus";
 import { LiveRegion } from "./ui/LiveRegion";
 
 const World = dynamic(() => import("./world/World"), { ssr: false, loading: () => null });
-
-function isTyping() {
-  const el = document.activeElement as HTMLElement | null;
-  return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
-}
 
 export function CodeScape() {
   const phase = useCity((s) => s.phase);
@@ -94,13 +90,18 @@ export function CodeScape() {
         else if (s.phase === "city") s.camera?.overview();
         return;
       }
+      // Movement keys (WASD, arrows, Q/E, R/F, +/−) belong to the camera rig.
       if (isTyping() || e.metaKey || e.ctrlKey || e.altKey || s.phase !== "city") return;
+      // "?" also closes the help dialog from inside it; other shortcuts wait until a dialog closes.
+      if (e.key === "?" && (s.panel === "help" || !inDialog())) {
+        s.set({ panel: s.panel === "help" ? null : "help" });
+        return;
+      }
+      if (inDialog()) return;
       if (e.key === "/") {
         e.preventDefault();
         s.set({ searchOpen: true });
-      } else if (e.key === "?") {
-        s.set({ panel: s.panel === "help" ? null : "help" });
-      } else if (e.key.toLowerCase() === "f" && s.selected) {
+      } else if (e.key.toLowerCase() === "c" && s.selected) {
         if (s.selected.kind === "building") s.camera?.flyToBuilding(s.selected.id);
         else s.camera?.flyToDistrict(s.selected.id);
       } else if (e.key.toLowerCase() === "h" || e.key === "0") {

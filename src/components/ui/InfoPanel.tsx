@@ -392,7 +392,7 @@ export function InfoPanel() {
           <div className="flex flex-wrap gap-2">
             {b.id !== "#overflow" && <OpenSource path={b.id} dir={isBlock} primary />}
             {b.id !== "#overflow" && <CopyButton text={b.id} label="Copy path" />}
-            <button type="button" className="btn btn-quiet px-3 py-2 text-[0.8rem]" onClick={() => camera?.flyToBuilding(b.id)} title="Focus (F)">
+            <button type="button" className="btn btn-quiet px-3 py-2 text-[0.8rem]" onClick={() => camera?.flyToBuilding(b.id)} title="Focus (C)">
               <IconTarget size={15} /> Focus
             </button>
           </div>

@@ -8,6 +8,8 @@ import type { CityBounds } from "@/lib/layout/types";
 import { useCity, type CameraApi } from "@/state/store";
 import { styleLayout } from "@/lib/layout/styleHeights";
 import { CITY_STYLES } from "@/theme/cityStyles";
+import { aerialView } from "@/lib/camera/aerialView";
+import { keysOwnedElsewhere } from "@/components/keyboardFocus";
 
 /** The current city as the active style draws it (heights matter for framing). */
 function styledLayout() {
@@ -17,7 +19,17 @@ function styledLayout() {
 
 const { ACTION } = CameraControlsImpl;
 const DEFAULT_AZIMUTH = 0.62;
-const CITY_POLAR = 1.0;
+/** Tilt limits: almost straight down, to a low view just above the rooftops. Never under the ground. */
+const MIN_POLAR = 0.02;
+const MAX_POLAR = 1.42;
+const SMOOTH = 0.32;
+
+/** Physical keys the camera flies with (by `KeyboardEvent.code`, so held keys release cleanly with Shift). */
+const FLIGHT_KEYS = new Set([
+  "KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
+  "KeyQ", "KeyE", "KeyR", "KeyF", "PageUp", "PageDown",
+  "Equal", "Minus", "NumpadAdd", "NumpadSubtract", "ShiftLeft", "ShiftRight",
+]);
 
 const v1 = new THREE.Vector3();
 const v2 = new THREE.Vector3();
@@ -42,11 +54,6 @@ function framingDistance(
   return Math.max(projW / (2 * tanH * (1 - insets.right)), (projV * 1.22) / (2 * tanV * (1 - insets.bottom))) * 1.04;
 }
 
-function isTyping() {
-  const el = document.activeElement as HTMLElement | null;
-  return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
-}
-
 /** How much UI covers the canvas, so focused things land in the visible part. */
 function overlayInsets() {
   if (typeof window === "undefined") return { right: 0, bottom: 0 };
@@ -59,10 +66,59 @@ function overlayInsets() {
   return { right: Math.min(400, w * 0.36) / w, bottom: 0 };
 }
 
+/** UI over the canvas that the opening view frames around: the guide (left), a panel (right), a sheet (below). */
+function openingInsets() {
+  const w = window.innerWidth;
+  const { right, bottom } = overlayInsets();
+  // The guide is a 390 px sheet, 16 px in from the left edge, on screens wider than a phone.
+  const left = w >= 640 && useCity.getState().panel === "guide" ? (Math.min(390, w - 32) + 16) / w : 0;
+  return { left, right, bottom };
+}
+
 function maxBuildingHeight(buildings: { y: number; height: number }[]) {
   let h = 0;
   for (const b of buildings) h = Math.max(h, b.y + b.height);
   return h;
+}
+
+/**
+ * The opening shot: a low three-quarter aerial view across the whole island
+ * from one corner, fitted exactly to the island and its towers (see aerialView).
+ */
+function openingView(camera: THREE.PerspectiveCamera, island: CityBounds) {
+  const layout = styledLayout();
+  const points = layout ? layout.buildings.map((b) => ({ x: b.x, y: b.y + b.height, z: b.z })) : [];
+  const half = Math.max(1, window.innerHeight / 2);
+  // Keep the top bar and the bottom controls clear.
+  const narrow = window.innerWidth < 640;
+  const edge = narrow ? 0.04 : 0.08;
+  const covered = openingInsets();
+  // A landscape frame shows the whole island. A portrait one is width-bound, so
+  // it frames the built-up area and lets the island's green ring run off the sides.
+  let ground: CityBounds = layout?.island ?? island;
+  if (layout && camera.aspect < 1) {
+    const pad = Math.max(layout.city.width, layout.city.depth) * 0.06;
+    ground = {
+      ...layout.city,
+      minX: layout.city.minX - pad,
+      maxX: layout.city.maxX + pad,
+      minZ: layout.city.minZ - pad,
+      maxZ: layout.city.maxZ + pad,
+    };
+  }
+  return aerialView({
+    ground,
+    points,
+    fov: camera.fov,
+    aspect: camera.aspect,
+    // Margins are fractions of the half-frame, so a panel covering a fraction f of the width costs 2f.
+    margin: {
+      left: Math.min(0.9, edge + 2 * covered.left),
+      right: Math.min(0.9, edge + 2 * covered.right),
+      top: Math.min(0.3, 72 / half),
+      bottom: Math.min(0.9, 76 / half + 2 * covered.bottom),
+    },
+  });
 }
 
 interface CameraRigProps {
@@ -78,6 +134,8 @@ export function CameraRig({ island, cityKey }: CameraRigProps) {
   const keys = useRef(new Set<string>());
   const interacting = useRef(false);
   const lastInteraction = useRef(0);
+  /** True while the camera rests on the opening view, untouched; it then follows panels opening and closing. */
+  const atOpening = useRef(false);
 
   const applyFocalOffset = useCallback(
     (distance: number, transition: boolean) => {
@@ -92,23 +150,40 @@ export function CameraRig({ island, cityKey }: CameraRigProps) {
     [camera],
   );
 
-  const frameCity = useCallback(
-    (c: CameraControlsImpl, bounds: CityBounds, azimuth: number, maxHeight: number) => {
-      const distance = framingDistance(bounds, camera, azimuth, CITY_POLAR, maxHeight);
-      const cx = (bounds.minX + bounds.maxX) / 2;
-      const cz = (bounds.minZ + bounds.maxZ) / 2;
-      v1.setFromSphericalCoords(distance, CITY_POLAR, azimuth).add(v2.set(cx, 0, cz));
-      void c.setFocalOffset(0, 0, 0, true);
-      void c.setLookAt(v1.x, v1.y, v1.z, cx, 0, cz, true);
+  /** Fly (or cut, under reduced motion) to the opening view. */
+  const goToOpening = useCallback(
+    (c: CameraControlsImpl, transition: boolean) => {
+      const view = openingView(camera, island);
+      // A tall phone frame can need more room than the usual zoom-out limit.
+      c.maxDistance = Math.max(c.maxDistance, view.distance * 1.3);
+      void c.setFocalOffset(0, 0, 0, transition);
+      void c.setLookAt(view.position.x, view.position.y, view.position.z, view.target.x, view.target.y, view.target.z, transition);
+      // Take the short way round, however many turns the loading spin made.
+      c.normalizeRotations();
+      atOpening.current = true;
     },
-    [camera],
+    [camera, island],
   );
 
+  /** Ease a camera move over `seconds`, then return to the normal responsiveness. */
+  const slowRestore = useRef<number | undefined>(undefined);
+  const easeOver = useCallback(
+    (c: CameraControlsImpl, seconds: number) => {
+      window.clearTimeout(slowRestore.current);
+      c.smoothTime = reducedMotion ? 0 : seconds;
+      slowRestore.current = window.setTimeout(() => {
+        if (ref.current) ref.current.smoothTime = reducedMotion ? 0.05 : SMOOTH;
+      }, seconds * 2000 + 200);
+    },
+    [reducedMotion],
+  );
+  useEffect(() => () => window.clearTimeout(slowRestore.current), []);
 
   // Public camera API used by the UI.
   useEffect(() => {
     const api: CameraApi = {
       flyToBuilding(id) {
+        atOpening.current = false;
         const c = ref.current;
         const layout = styledLayout();
         if (!c || !layout) return;
@@ -127,6 +202,7 @@ export function CameraRig({ island, cityKey }: CameraRigProps) {
         applyFocalOffset(distance, true);
       },
       flyToDistrict(path) {
+        atOpening.current = false;
         const layout = styledLayout();
         if (!layout) return;
         if (path === "") {
@@ -158,13 +234,13 @@ export function CameraRig({ island, cityKey }: CameraRigProps) {
         applyFocalOffset(distance, true);
       },
       overview() {
-        const layout = styledLayout();
         const c = ref.current;
         if (!c) return;
-        c.getSpherical(sph, true);
-        frameCity(c, layout?.city ?? island, sph.theta, layout ? maxBuildingHeight(layout.buildings) : 4);
+        easeOver(c, 0.6);
+        goToOpening(c, !reducedMotion);
       },
       zoom(direction) {
+        atOpening.current = false;
         const c = ref.current;
         if (!c) return;
         void c.dolly(direction * c.distance * 0.28, true);
@@ -172,34 +248,52 @@ export function CameraRig({ island, cityKey }: CameraRigProps) {
     };
     useCity.setState({ camera: api });
     return () => useCity.setState({ camera: null });
-  }, [island, applyFocalOffset, frameCity, camera]);
+  }, [island, applyFocalOffset, goToOpening, easeOver, reducedMotion, camera]);
 
-  // Limits follow the size of the world.
+  // Limits follow the size of the world: never under the ground, never far past the island.
   useEffect(() => {
     const c = ref.current;
     if (!c) return;
     const size = Math.max(island.width, island.depth);
+    const layout = styledLayout();
+    const tallest = layout ? maxBuildingHeight(layout.buildings) : 0;
+    const slack = Math.max(6, size * 0.3);
     c.minDistance = 3.5;
-    c.maxDistance = Math.max(60, size * 2.4);
-    c.minPolarAngle = 0.12;
-    c.maxPolarAngle = 1.3;
+    // Room to zoom out a little past the opening view, which a tall phone frame pushes far back.
+    c.maxDistance = Math.max(60, size * 2.6, phase === "city" ? openingView(camera, island).distance * 1.3 : 0);
+    c.minPolarAngle = MIN_POLAR;
+    c.maxPolarAngle = MAX_POLAR;
     c.dollyToCursor = true;
-    c.smoothTime = reducedMotion ? 0.05 : 0.32;
+    c.smoothTime = reducedMotion ? 0.05 : SMOOTH;
     c.draggingSmoothTime = 0.1;
+    // Pans slide across the ground like a map, whatever the tilt.
     c.mouseButtons.left = ACTION.ROTATE;
-    c.mouseButtons.right = ACTION.TRUCK;
+    c.mouseButtons.right = ACTION.SCREEN_PAN;
     c.mouseButtons.middle = ACTION.DOLLY;
     c.mouseButtons.wheel = ACTION.DOLLY;
     c.touches.one = ACTION.TOUCH_ROTATE;
-    c.touches.two = ACTION.TOUCH_DOLLY_TRUCK;
-    c.touches.three = ACTION.TOUCH_TRUCK;
+    // Pinch to zoom while two fingers pan across the ground. (Supported at runtime; missing from the library's types.)
+    c.touches.two = ACTION.TOUCH_DOLLY_SCREEN_PAN as typeof ACTION.TOUCH_DOLLY_TRUCK;
+    c.touches.three = ACTION.TOUCH_SCREEN_PAN;
+    // The orbit pivot stays over the island (with some sea around it) and above the ground.
     c.setBoundary(
       new THREE.Box3(
-        new THREE.Vector3(island.minX - 4, -1, island.minZ - 4),
-        new THREE.Vector3(island.maxX + 4, 30, island.maxZ + 4),
+        new THREE.Vector3(island.minX - slack, 0, island.minZ - slack),
+        new THREE.Vector3(island.maxX + slack, Math.max(30, tallest), island.maxZ + slack),
       ),
     );
-  }, [island, reducedMotion]);
+  }, [island, reducedMotion, phase, cityKey, camera]);
+
+  // Shift + left-drag pans instead of orbiting. camera-controls reads the
+  // button mapping on pointerdown, so set it just before (capture phase).
+  useEffect(() => {
+    const onPointerDown = (e: PointerEvent) => {
+      const c = ref.current;
+      if (c && e.pointerType === "mouse") c.mouseButtons.left = e.shiftKey ? ACTION.SCREEN_PAN : ACTION.ROTATE;
+    };
+    window.addEventListener("pointerdown", onPointerDown, { capture: true });
+    return () => window.removeEventListener("pointerdown", onPointerDown, { capture: true });
+  }, []);
 
   // Phase choreography.
   const introDone = useRef(-1);
@@ -224,40 +318,62 @@ export function CameraRig({ island, cityKey }: CameraRigProps) {
     }
   }, [phase, island, reducedMotion, camera]);
 
-  // A cinematic establishing shot for each new city.
+  // The opening shot for each new city: a short fly-in to the aerial view, or a
+  // cut under reduced motion. A deep link's selection or journey flies on from
+  // here once the city has assembled, so it always wins.
   useEffect(() => {
     if (phase !== "city" || introDone.current === cityKey) return;
     introDone.current = cityKey;
     const c = ref.current;
-    const layout = styledLayout();
-    if (!c || !layout) return;
-    c.smoothTime = reducedMotion ? 0.05 : 1.25;
-    frameCity(c, layout.city, c.azimuthAngle + (reducedMotion ? 0 : 0.55), maxBuildingHeight(layout.buildings));
-    const restore = window.setTimeout(() => {
-      if (ref.current) ref.current.smoothTime = reducedMotion ? 0.05 : 0.32;
-    }, 2600);
-    return () => window.clearTimeout(restore);
-  }, [phase, cityKey, reducedMotion, frameCity]);
+    if (!c || !styledLayout()) return;
+    easeOver(c, 1.1);
+    goToOpening(c, !reducedMotion);
+  }, [phase, cityKey, reducedMotion, goToOpening, easeOver]);
 
-  // Keyboard flight.
+  // While nobody has moved the camera since the opening view, keep the city framed in
+  // the uncovered part of the screen as the guide and other panels open and close.
+  useEffect(
+    () =>
+      useCity.subscribe((s, prev) => {
+        if (s.panel === prev.panel && s.selected === prev.selected) return;
+        const c = ref.current;
+        if (!c || s.phase !== "city" || !atOpening.current) return;
+        easeOver(c, 0.6);
+        goToOpening(c, !s.reducedMotion);
+      }),
+    [goToOpening, easeOver],
+  );
+
+  // Expose the controls to browser automation (as the store is) so end-to-end checks can read the camera.
+  useEffect(() => {
+    if (!navigator.webdriver) return;
+    const w = window as unknown as { __codescapeCamera?: CameraControlsImpl | null };
+    w.__codescapeCamera = ref.current;
+    return () => {
+      w.__codescapeCamera = null;
+    };
+  }, []);
+
+  // Keyboard flight. Keys are tracked while held and applied every frame.
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if (isTyping() || e.metaKey || e.ctrlKey || e.altKey) return;
-      const k = e.key.toLowerCase();
-      if (["w", "a", "s", "d", "q", "e", "arrowup", "arrowdown", "arrowleft", "arrowright", "+", "=", "-", "_", "shift"].includes(k)) {
-        keys.current.add(k);
-        if (k.startsWith("arrow")) e.preventDefault();
-      }
+      if (!FLIGHT_KEYS.has(e.code) || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (useCity.getState().phase !== "city" || keysOwnedElsewhere()) return;
+      keys.current.add(e.code);
+      // Arrows and Page keys would otherwise scroll a focused panel.
+      if (e.code.startsWith("Arrow") || e.code.startsWith("Page")) e.preventDefault();
     };
-    const up = (e: KeyboardEvent) => keys.current.delete(e.key.toLowerCase());
-    const blur = () => keys.current.clear();
+    const up = (e: KeyboardEvent) => keys.current.delete(e.code);
+    const clear = () => keys.current.clear();
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
-    window.addEventListener("blur", blur);
+    window.addEventListener("blur", clear);
+    document.addEventListener("visibilitychange", clear);
     return () => {
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
-      window.removeEventListener("blur", blur);
+      window.removeEventListener("blur", clear);
+      document.removeEventListener("visibilitychange", clear);
     };
   }, []);
 
@@ -275,26 +391,35 @@ export function CameraRig({ island, cityKey }: CameraRigProps) {
 
     const k = keys.current;
     if (k.size === 0 || phase !== "city") return;
-    if (c.smoothTime > 0.4) c.smoothTime = 0.32;
-    const fast = k.has("shift") ? 2.4 : 1;
-    const speed = Math.max(4, c.distance * 0.9) * fast * dt;
+    atOpening.current = false;
+    if (c.smoothTime > 0.4) c.smoothTime = SMOOTH;
+    const fast = k.has("ShiftLeft") || k.has("ShiftRight") ? 2.4 : 1;
+    // A looser cap than the drift's, so held keys keep their speed on a slow device.
+    const step = Math.min(delta, 0.12);
+    const speed = Math.max(4, c.distance * 0.9) * fast * step;
     let fx = 0;
     let fz = 0;
-    if (k.has("w") || k.has("arrowup")) fz -= 1;
-    if (k.has("s") || k.has("arrowdown")) fz += 1;
-    if (k.has("a") || k.has("arrowleft")) fx -= 1;
-    if (k.has("d") || k.has("arrowright")) fx += 1;
+    if (k.has("KeyW") || k.has("ArrowUp")) fz -= 1;
+    if (k.has("KeyS") || k.has("ArrowDown")) fz += 1;
+    if (k.has("KeyA") || k.has("ArrowLeft")) fx -= 1;
+    if (k.has("KeyD") || k.has("ArrowRight")) fx += 1;
     if (fx || fz) {
+      // Relative to the view, along the ground.
       const az = c.azimuthAngle;
       const dx = (fx * Math.cos(az) + fz * Math.sin(az)) * speed;
       const dz = (-fx * Math.sin(az) + fz * Math.cos(az)) * speed;
       c.getTarget(v1, true);
       void c.moveTo(v1.x + dx, v1.y, v1.z + dz, true);
     }
-    if (k.has("q")) void c.rotate(-1.3 * dt * fast, 0, true);
-    if (k.has("e")) void c.rotate(1.3 * dt * fast, 0, true);
-    if (k.has("+") || k.has("=")) void c.dolly(c.distance * 1.2 * dt * fast, true);
-    if (k.has("-") || k.has("_")) void c.dolly(-c.distance * 1.2 * dt * fast, true);
+    const turn = 1.3 * step * fast;
+    if (k.has("KeyQ")) void c.rotate(-turn, 0, true);
+    if (k.has("KeyE")) void c.rotate(turn, 0, true);
+    // R / PageUp tilt towards a top-down view; F / PageDown towards the ground.
+    const tilt = 0.9 * step * fast;
+    if (k.has("KeyR") || k.has("PageUp")) void c.rotate(0, -tilt, true);
+    if (k.has("KeyF") || k.has("PageDown")) void c.rotate(0, tilt, true);
+    if (k.has("Equal") || k.has("NumpadAdd")) void c.dolly(c.distance * 1.2 * step * fast, true);
+    if (k.has("Minus") || k.has("NumpadSubtract")) void c.dolly(-c.distance * 1.2 * step * fast, true);
   });
 
   return (
@@ -303,7 +428,8 @@ export function CameraRig({ island, cityKey }: CameraRigProps) {
       makeDefault
       onStart={() => {
         interacting.current = true;
-        if (ref.current && ref.current.smoothTime > 0.4) ref.current.smoothTime = 0.32;
+        atOpening.current = false;
+        if (ref.current && ref.current.smoothTime > 0.4) ref.current.smoothTime = SMOOTH;
       }}
       onEnd={() => {
         interacting.current = false;

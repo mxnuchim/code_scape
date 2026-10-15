@@ -11,7 +11,7 @@ The design record for CodeScape. Read it before building UI, and follow it. When
    - **Heuristic:** naming conventions or inference.
 
    Runtime behaviour is never implied. Nothing animates as if it were traffic.
-4. **Navigation never fights the user.** Fly-tos are short and eased, and the user can interrupt them. There is always a way back: `Esc` steps back, `H` returns to the overview.
+4. **Navigation never fights the user.** Fly-tos are short and eased, and the user can interrupt them. There is always a way back: `Esc` steps back, `H` (and the Home button) returns to the opening view.
 5. **Respect reduced motion** in both layers: the 3D scene snaps instead of easing, and UI springs are disabled.
 
 ## Tokens (`src/app/globals.css`)
@@ -58,6 +58,19 @@ Interaction colours (`WORLD` in `src/theme/palette.ts`): hover is white, selecti
 - The 3D scene uses the existing channels (rise, pop, dim), driven by eased per-frame updates.
 - Do not use marching dashes or moving particles on dependency lines. Dashes mean "uncertain or leaving the repo", and never mean motion.
 - `MotionConfig reducedMotion="user"` wraps the app, so UI springs follow the OS setting. The 3D scene reads `reducedMotion` from the store.
+
+## Camera and controls
+- **Opening view.** Every city opens on a low three-quarter aerial shot: about 22° above the horizon (`OPENING_ELEVATION`), looking diagonally across the island from the +X/+Z corner, turned a little off the exact diagonal. `aerialView()` (`src/lib/camera/aerialView.ts`) fits the island and every building top exactly into the frame, so a 5-building repo and a 10,000-building one are framed the same way. Never use fixed distances for framing.
+- **What it keeps clear:** the top bar, the bottom controls, the guide sheet (left, ≥ 640 px) and any right panel or phone sheet. While nobody has moved the camera since the opening view, it re-frames when those panels open or close.
+- **Portrait screens** frame the built-up area, not the whole island, and put the spare height above the city, where the sea, horizon and sky show.
+- **Fly-in:** about 1.1 s from the loading orbit, taking the short way round. Under reduced motion it is a cut. A deep link (`?select=`, `?journey=`) is applied after assembly and flies on from the opening view, so it always wins. Home, `H`, `0` and `Esc` with nothing open return to the same view.
+- **Fog, sky and far plane follow the camera distance,** so a tall phone frame or a full zoom-out never sinks the city into haze or leaves the sky dome.
+- **Limits:** tilt from almost straight down (0.02 rad) to just above the rooftops (1.42 rad); never below the ground. The orbit pivot stays over the island plus 30% of its size of sea. Zoom out stops a little past the opening view.
+- **Mouse:** left-drag orbits (vertical drag tilts); right-drag or shift + left-drag pans across the ground like a map; the wheel zooms towards the cursor.
+- **Touch:** one finger orbits and tilts; two fingers pan and pinch to zoom; three fingers pan.
+- **Keyboard** (by physical key, `KeyboardEvent.code`): WASD / arrows move relative to the view, Q/E turn, R/F and PageUp/PageDown tilt, +/− zoom, Shift is faster. Movement keys are ignored while a text field, a dialog, the file tree, a list, tabs or a menu has focus.
+- **Shortcut map:** `/` search, `?` help, `G` guide, `T` import flows, `C` focus the selection, `H`/`0` opening view, `[` `]` journey steps, `Esc` step back. `F` used to focus the selection; it is now tilt, as in most 3D map controls, and focusing moved to `C`.
+- The Help panel's "Getting around" lists every control in Mouse / City / Keyboard columns (touch screens get the touch list). The one-time hint names the essentials and points to `?`.
 
 ## Decision log
 
@@ -114,3 +127,9 @@ Interaction colours (`WORLD` in `src/theme/palette.ts`): hover is white, selecti
 - **Honesty rules for the library:** only real, public, unarchived repositories; never a closed product (Instagram, Snapchat, the Facebook app). "The code behind" only where literally true, and dated when it may be stale ("as X published them in 2023"). File counts come from CodeScape's own model, so they match the city; a truncated listing shows "≥" and "listing truncated". The footer says when and how counts were measured.
 - **Keyboard:** focus starts in search (on touch screens the dialog itself takes focus, so the keyboard doesn't cover the list); ↓/↑ move between entries and back to search; Tab is trapped; Esc closes. Search and filter reset each time the dialog opens.
 - **Gotcha:** don't put `backdrop-filter` (or a fading `opacity`) on the scrim. Either makes the scrim a backdrop root, and the panel's glass then shows the page behind it unblurred.
+
+### 2026-10-15 23:49 WAT — Opening aerial view and richer navigation
+- Cities open on a fitted low three-quarter aerial view (about 22°) instead of a 57°-from-vertical framing of the built area; see "Camera and controls" above. 22° rather than 30° so the horizon haze shows above the island on a landscape screen with our 30° field of view; at 25° and above the top of the frame is only sea.
+- Pans slide across the ground (`SCREEN_PAN`) rather than in the screen plane, so the pivot never lifts off the map.
+- `F` is now tilt and "focus the selection" moved to `C`; the inspector's Focus button title says so.
+- Global shortcuts other than `Esc` and `?` wait while focus is inside a dialog.

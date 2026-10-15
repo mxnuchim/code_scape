@@ -59,8 +59,12 @@ export function SkyDome() {
     [],
   );
   useEffect(() => () => material.dispose(), [material]);
+  // The dome travels with the camera, so a camera pulled far back (a tall phone
+  // frame, or zoomed right out) is never outside the sky.
+  const dome = useRef<THREE.Mesh>(null);
+  useFrame(({ camera }) => dome.current?.position.copy(camera.position));
   return (
-    <mesh material={material} raycast={noRaycast} renderOrder={-1} frustumCulled={false}>
+    <mesh ref={dome} material={material} raycast={noRaycast} renderOrder={-1} frustumCulled={false}>
       <sphereGeometry args={[900, 32, 16]} />
     </mesh>
   );
@@ -129,7 +133,7 @@ export function Ocean({ island }: { island: CityBounds }) {
 
   return (
     <mesh rotation-x={-Math.PI / 2} position-y={WATER_LEVEL} material={material} receiveShadow raycast={noRaycast}>
-      <planeGeometry args={[2400, 2400, 1, 1]} />
+      <planeGeometry args={[12000, 12000, 1, 1]} />
     </mesh>
   );
 }

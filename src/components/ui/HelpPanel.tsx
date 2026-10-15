@@ -117,22 +117,41 @@ export function HelpPanel() {
             <h3 className="mt-6 mb-2 text-[0.7rem] font-semibold tracking-[0.08em] text-ink-faint uppercase">Getting around</h3>
             {touch ? (
               <ul className="grid gap-1.5 text-[0.84rem] text-ink-soft sm:grid-cols-2">
-                <li>Drag with one finger to orbit</li>
-                <li>Pinch to zoom, two fingers to pan</li>
+                <li>Drag with one finger to orbit; drag up or down to tilt</li>
+                <li>Pinch to zoom, drag with two fingers to pan</li>
                 <li>Tap a building or district for details</li>
-                <li>The house button shows the whole city</li>
+                <li>The house button returns to the opening view</li>
               </ul>
             ) : (
-              <ul className="grid gap-1.5 text-[0.84rem] text-ink-soft sm:grid-cols-2">
-                <li><span className="kbd">drag</span> orbit · <span className="kbd">right-drag</span> pan</li>
-                <li><span className="kbd">scroll</span> zoom towards the cursor</li>
-                <li><span className="kbd">W A S D</span> fly · <span className="kbd">Q E</span> turn · <span className="kbd">shift</span> faster</li>
-                <li><span className="kbd">/</span> search · <span className="kbd">F</span> focus · <span className="kbd">H</span> whole city</li>
-                <li><span className="kbd">G</span> guide · <span className="kbd">T</span> import flows · <span className="kbd">esc</span> step back</li>
-                <li><span className="kbd">[</span> <span className="kbd">]</span> previous / next journey step</li>
-                <li><span className="kbd">↑ ↓ ← →</span> fly · <span className="kbd">+ −</span> zoom</li>
-                <li><span className="kbd">?</span> this help</li>
-              </ul>
+              <div className="grid gap-4 text-[0.84rem] text-ink-soft sm:grid-cols-2">
+                <div>
+                  <h4 className="mb-1.5 text-[0.78rem] font-semibold text-ink">Mouse</h4>
+                  <ul className="space-y-1.5">
+                    <li><span className="kbd">drag</span> orbit; up and down tilts</li>
+                    <li><span className="kbd">right-drag</span> or <span className="kbd">shift</span> + <span className="kbd">drag</span> pan</li>
+                    <li><span className="kbd">scroll</span> zoom towards the cursor</li>
+                    <li><span className="kbd">click</span> a building or district for details</li>
+                  </ul>
+                  <h4 className="mt-3 mb-1.5 text-[0.78rem] font-semibold text-ink">City</h4>
+                  <ul className="space-y-1.5">
+                    <li><span className="kbd">/</span> search · <span className="kbd">G</span> guide · <span className="kbd">T</span> import flows</li>
+                    <li><span className="kbd">C</span> focus the selection · <span className="kbd">esc</span> step back</li>
+                    <li><span className="kbd">[</span> <span className="kbd">]</span> previous / next journey step</li>
+                    <li><span className="kbd">?</span> this help</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="mb-1.5 text-[0.78rem] font-semibold text-ink">Keyboard</h4>
+                  <ul className="space-y-1.5">
+                    <li><span className="kbd">W A S D</span> or <span className="kbd">↑ ← ↓ →</span> move</li>
+                    <li><span className="kbd">Q</span> <span className="kbd">E</span> turn left / right</li>
+                    <li><span className="kbd">R</span> <span className="kbd">F</span> or <span className="kbd">PgUp</span> <span className="kbd">PgDn</span> tilt up / down</li>
+                    <li><span className="kbd">+</span> <span className="kbd">−</span> zoom in / out</li>
+                    <li>hold <span className="kbd">shift</span> to move faster</li>
+                    <li><span className="kbd">H</span> back to the opening view</li>
+                  </ul>
+                </div>
+              </div>
             )}
           </motion.section>
         </motion.div>

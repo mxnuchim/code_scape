@@ -44,6 +44,7 @@ const CLOCK_POLL_MS = 1000;
  */
 export function EnvironmentRig({ size }: { size: number }) {
   const scene = useThree((s) => s.scene);
+  const camera = useThree((s) => s.camera);
   const tier = useCity((s) => s.tier);
   const sun = useMemo(() => {
     const l = new THREE.DirectionalLight("#ffffff", 2.5);
@@ -130,8 +131,19 @@ export function EnvironmentRig({ size }: { size: number }) {
 
     // Atmosphere
     fog.color.set(env.fog);
-    fog.near = size * env.fogNear + 20;
-    fog.far = size * env.fogFar + 160;
+    // The haze is tuned for a landscape view of the whole island. A camera
+    // further back (a tall phone frame, or zoomed right out) pushes it back too,
+    // so the city never sinks into fog.
+    const away = camera.position.length();
+    const pushBack = Math.max(0, away - size * 1.8);
+    // And the far plane keeps the whole island and the sea around it in view.
+    const far = Math.max(2600, away * 2.2);
+    if (camera instanceof THREE.PerspectiveCamera && Math.abs(camera.far - far) > 50) {
+      camera.far = far;
+      camera.updateProjectionMatrix();
+    }
+    fog.near = size * env.fogNear + 20 + pushBack;
+    fog.far = size * env.fogFar + 160 + pushBack;
     background.set(env.horizon);
     skyUniforms.uTop.value.set(env.skyTop);
     skyUniforms.uMid.value.set(env.skyMid);
