@@ -70,7 +70,7 @@ export default function World({ onFailure }: { onFailure: (reason: "crash" | "co
       <Canvas
         shadows="percentage"
         dpr={dpr}
-        camera={{ fov: 34, near: 0.5, far: 2600, position: [38, 34, 46] }}
+        camera={{ fov: 30, near: 0.5, far: 2600, position: [38, 34, 46] }}
         gl={{ antialias: false, powerPreference: "high-performance", stencil: false }}
         onCreated={({ gl }) => {
           gl.toneMapping = THREE.NeutralToneMapping;

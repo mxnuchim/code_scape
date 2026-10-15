@@ -30,8 +30,9 @@ export function CodeScape() {
   const assembled = useCity((s) => s.assembled);
   const [failure, setFailure] = useState<null | "crash" | "context-lost" | "unsupported">(null);
 
-  // Routing from the address bar (and back/forward).
+  // Routing from the address bar (and back/forward), after restoring saved preferences.
   useEffect(() => {
+    useCity.getState().hydratePreferences();
     const route = () => {
       const segments = window.location.pathname.split("/").filter(Boolean);
       if (segments.length >= 2) {

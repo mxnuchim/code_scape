@@ -70,6 +70,11 @@ export interface LaneLayout {
   z2: number;
 }
 
+export interface LampLayout {
+  x: number;
+  z: number;
+}
+
 export interface LabelLayout {
   id: string;
   text: string;
@@ -100,6 +105,8 @@ export interface CityLayout {
   plaza: LotLayout | null;
   trees: TreeLayout[];
   lanes: LaneLayout[];
+  /** Streetlights along the avenues and the ring road. */
+  lamps: LampLayout[];
   labels: LabelLayout[];
   /** The road surface: the whole built area. */
   city: CityBounds;

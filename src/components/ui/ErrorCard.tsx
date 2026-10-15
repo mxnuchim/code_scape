@@ -265,11 +265,11 @@ export function ErrorCard() {
       animate={{ opacity: 1, y: 0, transition: { type: "spring", stiffness: 150, damping: 20, delay: 0.2 } }}
       exit={{ opacity: 0, y: 18, transition: { duration: 0.25 } }}
     >
-      <section role="alert" className="glass-strong pointer-events-auto w-full max-w-[520px] rounded-[26px] p-5 sm:p-6">
+      <section role="alert" className="glass-strong pointer-events-auto w-full max-w-[520px] rounded-xl p-5 sm:p-6">
         <div className="mb-3 flex items-center gap-3">
           <span
-            className={`grid h-10 w-10 shrink-0 place-items-center rounded-2xl ${
-              copy.tone === "wait" ? "bg-[#fff1cc] text-[#a86b00]" : "bg-[#ffe3d6] text-[#c2491d]"
+            className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${
+              copy.tone === "wait" ? "bg-amber-400/10 text-amber-300" : "bg-orange-500/10 text-orange-300"
             }`}
           >
             {copy.tone === "wait" ? <IconClock size={21} /> : <IconAlert size={21} />}
@@ -279,7 +279,7 @@ export function ErrorCard() {
               <IconGitHub size={12} />
               <span className="truncate">{repoSlug(error.repo)}</span>
             </p>
-            <h2 className="font-display text-[1.35rem] leading-tight font-bold tracking-tight">{copy.title}</h2>
+            <h2 className="text-[17px] leading-tight font-semibold tracking-tight">{copy.title}</h2>
           </div>
         </div>
         <p className="text-[0.92rem] leading-relaxed text-ink-soft">{copy.body}</p>

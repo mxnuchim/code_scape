@@ -45,9 +45,12 @@ function updateHistory(path: string, mode: HistoryMode) {
 const nextFrame = () => new Promise<void>((resolve) => setTimeout(resolve, 16));
 
 /** Dev-only: `?__simulate=rate-limit` etc. lets us check every state without spending API quota. */
-async function maybeSimulate(signal: AbortSignal) {
-  if (process.env.NODE_ENV === "production" || typeof window === "undefined") return;
-  const mode = new URLSearchParams(window.location.search).get("__simulate");
+function simulationMode(): string | null {
+  if (process.env.NODE_ENV === "production" || typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("__simulate");
+}
+
+async function maybeSimulate(mode: string | null, signal: AbortSignal) {
   if (!mode) return;
   await new Promise((r) => setTimeout(r, 1100));
   if (signal.aborted) throw new GitHubError("aborted", "cancelled");
@@ -161,11 +164,13 @@ function begin(repo: RepoRef): AbortSignal {
 }
 
 export async function loadRepo(ref: RepoRef, history: HistoryMode = "push") {
+  // Read before the URL changes below.
+  const simulate = simulationMode();
   const signal = begin(ref);
   updateHistory(repoPath(ref), history);
   let meta: RepoMeta | undefined;
   try {
-    await maybeSimulate(signal);
+    await maybeSimulate(simulate, signal);
     const key = cacheKey(ref);
     const cached = sessionCache.get(key);
     if (cached) {

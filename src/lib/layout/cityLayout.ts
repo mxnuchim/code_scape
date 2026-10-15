@@ -7,6 +7,7 @@ import type {
   CityBounds,
   CityLayout,
   LabelLayout,
+  LampLayout,
   LaneLayout,
   PlateLayout,
   TreeLayout,
@@ -235,7 +236,9 @@ export function buildCityLayout(model: RepoModel): LayoutResult {
         y: top,
         width: base * s.fillX * grow,
         depth: base * s.fillZ * grow,
-        height: heightFor(archetype, file.size),
+        // Landmarks deep inside the tree (e.g. hundreds of example packages)
+        // stay recognisable but no longer dominate the skyline.
+        height: heightFor(archetype, file.size) * (file.landmark && file.depth >= 2 ? 0.55 : 1),
         language: file.language,
         category: file.category,
         dirPath: dir.path,
@@ -365,6 +368,35 @@ export function buildCityLayout(model: RepoModel): LayoutResult {
     depth: city.depth + 2 * margin,
   };
 
+  // Streetlights: both kerbs of every avenue, staggered, plus the ring road.
+  const lamps: LampLayout[] = [];
+  const LAMP_STEP = 3.6;
+  const kerb = gapFor(0) / 2 - 0.16;
+  for (const l of lanes) {
+    const len = Math.hypot(l.x2 - l.x1, l.z2 - l.z1);
+    const horizontal = Math.abs(l.z2 - l.z1) < 1e-6;
+    const n = Math.floor(len / LAMP_STEP);
+    for (let i = 0; i < n; i++) {
+      const t = (LAMP_STEP * (i + 0.5)) / len;
+      const side = i % 2 === 0 ? 1 : -1;
+      const x = l.x1 + (l.x2 - l.x1) * t + (horizontal ? 0 : side * kerb);
+      const z = l.z1 + (l.z2 - l.z1) * t + (horizontal ? side * kerb : 0);
+      lamps.push({ x, z });
+    }
+  }
+  const ring = padFor(0) * 0.5;
+  const perimeter: [number, number, number, number][] = [
+    [cityRect.x + ring, cityRect.y + ring, cityRect.x + cityRect.w - ring, cityRect.y + ring],
+    [cityRect.x + cityRect.w - ring, cityRect.y + ring, cityRect.x + cityRect.w - ring, cityRect.y + cityRect.h - ring],
+    [cityRect.x + cityRect.w - ring, cityRect.y + cityRect.h - ring, cityRect.x + ring, cityRect.y + cityRect.h - ring],
+    [cityRect.x + ring, cityRect.y + cityRect.h - ring, cityRect.x + ring, cityRect.y + ring],
+  ];
+  for (const [x1, z1, x2, z2] of perimeter) {
+    const len = Math.hypot(x2 - x1, z2 - z1);
+    const n = Math.floor(len / (LAMP_STEP * 1.2));
+    for (let i = 1; i < n; i++) lamps.push({ x: x1 + ((x2 - x1) * i) / n, z: z1 + ((z2 - z1) * i) / n });
+  }
+
   // A ring of greenery between the city and the island's edge.
   const occupied = new Set<string>();
   const ringCount = Math.min(MAX_TREES - trees.length, Math.round((island.width + island.depth) * 1.7));
@@ -399,6 +431,7 @@ export function buildCityLayout(model: RepoModel): LayoutResult {
     plaza,
     trees,
     lanes,
+    lamps,
     labels,
     city,
     island,

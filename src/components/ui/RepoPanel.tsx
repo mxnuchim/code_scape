@@ -22,7 +22,7 @@ export function RepoPanel() {
     <div className="flex items-start gap-3">
       <RepoAvatar owner={meta.owner} size={44} />
       <div className="min-w-0">
-        <h2 className="truncate font-display text-[1.25rem] leading-tight font-bold tracking-tight">
+        <h2 className="truncate text-[16px] leading-tight font-semibold tracking-tight">
           <span className="font-semibold text-ink-soft">{meta.owner}/</span>
           {meta.repo}
         </h2>
@@ -101,7 +101,7 @@ export function RepoPanel() {
       {(limits.truncated || limits.aggregatedDirs.length > 0 || limits.rootOverflow > 0) && (
         <Section title="Analysis limits">
           {limits.truncated && (
-            <p className="mb-2 flex gap-2 rounded-2xl bg-[#fff1cc] p-3 text-[0.8rem] text-[#7a4f00]">
+            <p className="mb-2 flex gap-2 rounded-lg bg-amber-400/10 p-3 text-[0.8rem] text-amber-300">
               <IconAlert size={16} className="mt-0.5 shrink-0" />
               <span>
                 GitHub truncated the file listing because the repository is very large (over 100,000 entries or 7 MB). This city

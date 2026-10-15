@@ -5,16 +5,15 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { CityBounds, LotLayout } from "@/lib/layout/types";
-import { WORLD } from "@/theme/palette";
+import type { CityStyle } from "@/theme/cityStyles";
+import { liveEnvironment, oceanUniforms, skyUniforms } from "./EnvironmentRig";
 import { worldUniforms } from "./materials";
 import { markShadowsDirty } from "./shadows";
 import { slabGeometry } from "./shapes";
 
 export const WATER_LEVEL = -0.42;
-const SHELF = 1.8;
+const QUAY = 1.1;
 const noRaycast = () => {};
-
-export const SUN_DIRECTION = new THREE.Vector3(-0.55, 0.62, 0.56).normalize();
 
 /* ------------------------------------------------------------------ Sky -- */
 
@@ -25,13 +24,7 @@ export function SkyDome() {
         side: THREE.BackSide,
         depthWrite: false,
         fog: false,
-        uniforms: {
-          uTop: { value: new THREE.Color(WORLD.skyTop) },
-          uMid: { value: new THREE.Color(WORLD.skyMid) },
-          uHorizon: { value: new THREE.Color(WORLD.horizon) },
-          uSunDir: { value: SUN_DIRECTION.clone() },
-          uSun: { value: new THREE.Color(WORLD.sun) },
-        },
+        uniforms: skyUniforms,
         vertexShader: /* glsl */ `
           varying vec3 vDir;
           void main() {
@@ -42,14 +35,22 @@ export function SkyDome() {
           }`,
         fragmentShader: /* glsl */ `
           uniform vec3 uTop; uniform vec3 uMid; uniform vec3 uHorizon; uniform vec3 uSunDir; uniform vec3 uSun;
+          uniform float uStars; uniform float uNight;
           varying vec3 vDir;
+          float starHash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
           void main() {
-            float h = clamp(vDir.y, -1.0, 1.0);
+            vec3 dir = normalize(vDir);
+            float h = clamp(dir.y, -1.0, 1.0);
             vec3 col = mix(uHorizon, uMid, smoothstep(0.0, 0.22, h));
             col = mix(col, uTop, smoothstep(0.2, 0.75, h));
             col = mix(col, uHorizon, smoothstep(0.0, -0.2, h));
-            float sun = max(dot(normalize(vDir), uSunDir), 0.0);
-            col += uSun * (pow(sun, 18.0) * 0.35 + pow(sun, 400.0) * 0.6);
+            float sun = max(dot(dir, uSunDir), 0.0);
+            // The sun's halo by day; a small, crisp moon by night.
+            col += uSun * mix(pow(sun, 18.0) * 0.35 + pow(sun, 400.0) * 0.6, smoothstep(0.9993, 0.9996, sun) * 1.4 + pow(sun, 60.0) * 0.08, uNight);
+            // Sparse stars, fading out towards the horizon haze.
+            vec3 cell = floor(dir * 260.0);
+            float star = step(0.9965, starHash(cell)) * smoothstep(0.08, 0.4, h);
+            col += vec3(0.85, 0.9, 1.0) * star * uStars * (0.4 + 0.6 * starHash(cell + 3.1));
             gl_FragColor = vec4(col, 1.0);
             #include <tonemapping_fragment>
             #include <colorspace_fragment>
@@ -68,31 +69,25 @@ export function SkyDome() {
 /* ---------------------------------------------------------------- Ocean -- */
 
 export function Ocean({ island }: { island: CityBounds }) {
-  const uniforms = useMemo(
-    () => ({
-      uIsland: { value: new THREE.Vector4(0, 0, 10, 10) },
-      uShallow: { value: new THREE.Color(WORLD.water) },
-      uDeep: { value: new THREE.Color(WORLD.waterDeep) },
-    }),
-    [],
-  );
+  const uniforms = useMemo(() => ({ uIsland: { value: new THREE.Vector4(0, 0, 10, 10) } }), []);
   const target = useRef(new THREE.Vector4());
   useEffect(() => {
     target.current.set(
       (island.minX + island.maxX) / 2,
       (island.minZ + island.maxZ) / 2,
-      island.width / 2 + SHELF,
-      island.depth / 2 + SHELF,
+      island.width / 2 + QUAY,
+      island.depth / 2 + QUAY,
     );
   }, [island]);
 
   const material = useMemo(() => {
-    const m = new THREE.MeshStandardMaterial({ roughness: 0.32, metalness: 0.05 });
+    const m = new THREE.MeshStandardMaterial({ roughness: 0.22, metalness: 0.25 });
     m.onBeforeCompile = (shader) => {
       shader.uniforms.uTime = worldUniforms.uTime;
       shader.uniforms.uIsland = uniforms.uIsland;
-      shader.uniforms.uShallow = uniforms.uShallow;
-      shader.uniforms.uDeep = uniforms.uDeep;
+      shader.uniforms.uShallow = oceanUniforms.uShallow;
+      shader.uniforms.uDeep = oceanUniforms.uDeep;
+      shader.uniforms.uNight = oceanUniforms.uNight;
       shader.vertexShader = shader.vertexShader
         .replace("#include <common>", "#include <common>\nvarying vec3 vWorld;")
         .replace(
@@ -103,7 +98,7 @@ export function Ocean({ island }: { island: CityBounds }) {
         .replace(
           "#include <common>",
           `#include <common>
-           uniform float uTime; uniform vec4 uIsland; uniform vec3 uShallow; uniform vec3 uDeep;
+           uniform float uTime; uniform vec4 uIsland; uniform vec3 uShallow; uniform vec3 uDeep; uniform float uNight;
            varying vec3 vWorld;
            float sdRoundRect(vec2 p, vec2 b, float r) { vec2 q = abs(p) - b + r; return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r; }`,
         )
@@ -112,19 +107,17 @@ export function Ocean({ island }: { island: CityBounds }) {
           `#include <color_fragment>
            vec2 rel = vWorld.xz - uIsland.xy;
            float dist = sdRoundRect(rel, uIsland.zw, 4.0);
-           float depthMix = smoothstep(0.0, 26.0, dist);
+           float depthMix = smoothstep(0.0, 30.0, dist);
            vec3 water = mix(uShallow, uDeep, depthMix);
-           float ripple = sin(vWorld.x * 0.35 + uTime * 0.7) * sin(vWorld.z * 0.28 - uTime * 0.55);
-           float glints = smoothstep(0.82, 1.0, ripple) * (1.0 - depthMix * 0.6);
-           water += glints * 0.07;
-           float wave = 0.5 + 0.5 * sin(dist * 2.4 - uTime * 1.6);
-           float foam = (1.0 - smoothstep(0.0, 0.55 + wave * 0.35, dist)) * step(-0.2, dist);
-           float foam2 = (1.0 - smoothstep(0.0, 0.16, abs(dist - 1.3 - wave * 0.5))) * 0.45 * (1.0 - smoothstep(1.0, 2.6, dist));
-           water = mix(water, vec3(1.0, 0.99, 0.95), clamp(foam + foam2, 0.0, 1.0) * 0.85);
+           float ripple = sin(vWorld.x * 0.42 + uTime * 0.6) * sin(vWorld.z * 0.33 - uTime * 0.45);
+           water += smoothstep(0.86, 1.0, ripple) * (1.0 - depthMix * 0.6) * 0.035 * (1.0 - uNight);
+           // A thin, quiet wash against the quay wall instead of a beach.
+           float wash = (1.0 - smoothstep(0.0, 0.35, dist)) * step(-0.1, dist);
+           water = mix(water, vec3(0.9, 0.92, 0.92), wash * 0.28 * (1.0 - uNight * 0.8));
            diffuseColor.rgb = water;`,
         );
     };
-    m.customProgramCacheKey = () => "sc-ocean-v1";
+    m.customProgramCacheKey = () => "sc-ocean-v2";
     return m;
   }, [uniforms]);
   useEffect(() => () => material.dispose(), [material]);
@@ -144,6 +137,7 @@ export function Ocean({ island }: { island: CityBounds }) {
 /* --------------------------------------------------------------- Island -- */
 
 interface IslandProps {
+  style: CityStyle;
   island: CityBounds;
   city: CityBounds | null;
   plaza: LotLayout | null;
@@ -151,11 +145,11 @@ interface IslandProps {
 }
 
 /**
- * The ground the city stands on: a grassy island with a sand shelf. In city
- * mode it also has a road surface. When the island changes size it morphs
- * smoothly instead of popping.
+ * The ground the city stands on, edged by a stone quay. In city mode it also
+ * has a road surface. When the island changes size it morphs smoothly
+ * instead of popping.
  */
-export function Island({ island, city, plaza, reducedMotion }: IslandProps) {
+export function Island({ style, island, city, plaza, reducedMotion }: IslandProps) {
   const group = useRef<THREE.Group>(null);
   const morph = useRef({ fromX: 1, fromZ: 1, t: 1 });
   const prevSize = useRef<{ w: number; d: number } | null>(null);
@@ -163,8 +157,8 @@ export function Island({ island, city, plaza, reducedMotion }: IslandProps) {
   const geoms = useMemo(() => {
     const cx = (island.minX + island.maxX) / 2;
     const cz = (island.minZ + island.maxZ) / 2;
-    const grass = slabGeometry(island.width, island.depth, 4, 1.4, 0, 0.22, 10).translate(cx, 0, cz);
-    const sand = slabGeometry(island.width + SHELF * 2, island.depth + SHELF * 2, 5.2, 3.2, -0.22, 0.35, 10).translate(cx, 0, cz);
+    const grass = slabGeometry(island.width, island.depth, 2.4, 1.4, 0, 0.06, 8).translate(cx, 0, cz);
+    const sand = slabGeometry(island.width + QUAY * 2, island.depth + QUAY * 2, 3, 3.2, -0.05, 0.03, 8).translate(cx, 0, cz);
     let road: THREE.BufferGeometry | null = null;
     if (city) {
       road = slabGeometry(city.width + 0.2, city.depth + 0.2, 0.9, 0.3, 0.04, 0.04, 6).translate(
@@ -206,19 +200,19 @@ export function Island({ island, city, plaza, reducedMotion }: IslandProps) {
   return (
     <group ref={group}>
       <mesh geometry={geoms.sand} receiveShadow raycast={noRaycast}>
-        <meshStandardMaterial color={WORLD.sand} roughness={0.95} />
+        <meshStandardMaterial color={style.ground.quay} roughness={0.9} />
       </mesh>
       <mesh geometry={geoms.grass} receiveShadow raycast={noRaycast}>
-        <meshStandardMaterial color={WORLD.grass} roughness={0.95} />
+        <meshStandardMaterial color={style.ground.island} roughness={0.96} />
       </mesh>
       {geoms.road && (
         <mesh geometry={geoms.road} receiveShadow raycast={noRaycast}>
-          <meshStandardMaterial color={WORLD.road} roughness={0.92} />
+          <meshStandardMaterial color={style.ground.road} roughness={0.7} metalness={0.05} />
         </mesh>
       )}
       {geoms.plaza && (
         <mesh geometry={geoms.plaza} receiveShadow raycast={noRaycast}>
-          <meshStandardMaterial color={WORLD.plaza} roughness={0.9} />
+          <meshStandardMaterial color={style.ground.plaza} roughness={0.85} />
         </mesh>
       )}
     </group>
@@ -290,7 +284,9 @@ function puffGeometry(): THREE.BufferGeometry {
 
 export function Clouds({ radius, reducedMotion }: { radius: number; reducedMotion: boolean }) {
   const mesh = useRef<THREE.InstancedMesh>(null);
-  const count = 18;
+  const material = useRef<THREE.MeshStandardMaterial>(null);
+  const white = useMemo(() => new THREE.Color("#ffffff"), []);
+  const count = 14;
   const geometry = useMemo(() => puffGeometry(), []);
   const seeds = useMemo(() => {
     let s = 7;
@@ -298,7 +294,7 @@ export function Clouds({ radius, reducedMotion }: { radius: number; reducedMotio
     return Array.from({ length: count }, () => ({
       angle: rnd() * Math.PI * 2,
       dist: 0.75 + rnd() * 1.1,
-      height: 20 + rnd() * 26,
+      height: 36 + rnd() * 24,
       scale: 1.8 + rnd() * 2.6,
       speed: 0.25 + rnd() * 0.35,
       stretch: 1 + rnd() * 0.8,
@@ -312,9 +308,18 @@ export function Clouds({ radius, reducedMotion }: { radius: number; reducedMotio
   const quat = useMemo(() => new THREE.Quaternion(), []);
   const R = Math.max(70, radius * 1.4);
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock, camera }) => {
     const inst = mesh.current;
     if (!inst) return;
+    // Clouds never block the view: they shrink away as the camera nears them.
+    const camDist = camera.position.length();
+    const mat = material.current;
+    if (mat) {
+      // Clouds take on the sky: bright by day, dim silhouettes at night.
+      const night = liveEnvironment.night;
+      mat.color.set(liveEnvironment.preset.fog).lerp(white, 0.75 * (1 - night)).multiplyScalar(1 - 0.55 * night);
+      mat.emissiveIntensity = 0.28 * (1 - night);
+    }
     const t = reducedMotion ? 0 : clock.elapsedTime;
     seeds.forEach((c, i) => {
       const span = R * 2.4;
@@ -322,7 +327,9 @@ export function Clouds({ radius, reducedMotion }: { radius: number; reducedMotio
       const x = ((((baseX + t * c.speed + span / 2) % span) + span) % span) - span / 2;
       const z = Math.sin(c.angle) * R * c.dist;
       pos.set(x, c.height, z);
-      scl.set(c.scale * c.stretch, c.scale, c.scale);
+      const near = THREE.MathUtils.smoothstep(pos.distanceTo(camera.position), camDist * 0.35, camDist * 0.7);
+      const k = c.scale * near;
+      scl.set(k * c.stretch, k, k);
       m.compose(pos, quat, scl);
       inst.setMatrixAt(i, m);
     });
@@ -331,7 +338,7 @@ export function Clouds({ radius, reducedMotion }: { radius: number; reducedMotio
 
   return (
     <instancedMesh ref={mesh} args={[geometry, undefined, count]} frustumCulled={false} raycast={noRaycast}>
-      <meshStandardMaterial color="#ffffff" emissive="#ffe9d6" emissiveIntensity={0.38} roughness={1} />
+      <meshStandardMaterial ref={material} color="#ffffff" emissive="#fff3e6" emissiveIntensity={0.28} roughness={1} />
     </instancedMesh>
   );
 }

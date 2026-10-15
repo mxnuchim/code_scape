@@ -9,7 +9,7 @@ export function RepoAvatar({ owner, size = 32 }: { owner: string; size?: number 
   if (failed) {
     return (
       <span
-        className="grid shrink-0 place-items-center rounded-[10px] bg-gradient-to-br from-[#8fbbe6] to-[#f7d9bd] font-display font-bold text-white"
+        className="grid shrink-0 place-items-center rounded-md bg-white/10 font-display font-semibold text-white"
         style={{ ...style, fontSize: size * 0.45 }}
         aria-hidden
       >
@@ -25,7 +25,7 @@ export function RepoAvatar({ owner, size = 32 }: { owner: string; size?: number 
       alt=""
       width={size}
       height={size}
-      className="shrink-0 rounded-[10px] bg-white/70 ring-1 ring-black/5"
+      className="shrink-0 rounded-md bg-white/[0.05] ring-1 ring-white/10"
       style={style}
       onError={() => setFailed(true)}
     />

@@ -59,7 +59,7 @@ export function ControlsHint() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
         >
-          <div className="glass pointer-events-auto flex items-center gap-3 rounded-full py-2 pr-2 pl-4 text-[0.8rem] text-ink-soft">
+          <div className="glass pointer-events-auto flex items-center gap-3 rounded-lg py-1.5 pr-1.5 pl-3.5 text-[0.8rem] text-ink-soft">
             {touch ? (
               <span>Drag to orbit · pinch to zoom · two fingers to pan · tap a building</span>
             ) : (

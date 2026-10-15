@@ -103,45 +103,24 @@ export const DISTRICT_TINTS = [
   "#f0d6dc",
 ];
 
+/** Interaction colours shared by the world and the interface. */
 export const WORLD = {
-  skyTop: "#7fb0e0",
-  skyMid: "#b9d3ec",
-  horizon: "#f6dcc2",
-  fog: "#efd9c6",
-  sun: "#ffe0b5",
-  hemiSky: "#d4e6ff",
-  hemiGround: "#efcf9f",
-  grass: "#a6cc7c",
-  grassDark: "#8fbd6a",
-  sand: "#efd9a8",
-  sandWet: "#d9bf8a",
-  earth: "#b88560",
-  water: "#7cc6d3",
-  waterDeep: "#4f9fbd",
-  road: "#7d8395",
-  roadEdge: "#6b7083",
-  lane: "#f7eed6",
-  plaza: "#f1e6d0",
-  windowLit: "#ffc96b",
-  windowGlass: "#5c6f8a",
-  ink: "#2f2e3a",
-  dim: "#cfc8bc",
-  hover: "#fff6dc",
-  select: "#ffb547",
-  importsOut: "#f59e2c",
-  importsIn: "#2bb3a6",
+  dim: "#7b7f86",
+  hover: "#ffffff",
+  select: "#f5a524",
+  importsOut: "#f5a524",
+  importsIn: "#3cc6b8",
 } as const;
 
-/** Roof and trim palettes per archetype, picked by each building's variant. */
-export const ROOF_COLORS: Partial<Record<Archetype, string[]>> = {
-  tower: ["#f3ead8", "#e7e2d6", "#f0e3cc"],
-  house: ["#d9765a", "#c96a52", "#e08a5f", "#7b8fb0", "#6aa07a"],
-  lab: ["#bfeee3", "#c9e6f5", "#d9f2e2"],
-  silo: ["#8e95a6", "#9aa2b4", "#a5927e"],
-  factory: ["#8b909e", "#9a8f86", "#7e8796"],
-  pavilion: ["#7a6fb0", "#d17aa5", "#5a8fb5"],
-  warehouse: ["#c7cbd4", "#b9c0cb", "#d0cbc2"],
-  crates: ["#c9995f", "#b88a52", "#d4a76c"],
-  kiosk: ["#e7d9c4", "#d8c8b4"],
-  block: ["#efe6d6"],
+/** Facade colours for the "Role" lens; also used in composition bars. */
+export const CATEGORY_COLORS: Record<Category, string> = {
+  source: "#6d8fd8",
+  test: "#4fb3a2",
+  config: "#9aa3b2",
+  build: "#c97a5a",
+  docs: "#d9c49a",
+  style: "#a990e0",
+  data: "#d9a95a",
+  asset: "#e39bb2",
+  other: "#a7a29a",
 };

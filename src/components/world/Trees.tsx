@@ -8,12 +8,15 @@ import type { TreeLayout } from "@/lib/layout/types";
 import { createSwayMaterial } from "./materials";
 import { markShadowsDirty } from "./shadows";
 
-const FOLIAGE = ["#8cc46c", "#7db95f", "#9fcf74", "#6fae5c", "#a9d27d", "#86bf77"];
-const AUTUMN = ["#f0b75e", "#e98b61", "#f2cf6a"];
-const PINE = ["#5f9d6a", "#6aa874", "#558f63"];
+export interface TreePalette {
+  foliage: string[];
+  pine: string[];
+}
+
+const DEFAULT_PALETTE: TreePalette = { foliage: ["#5f7f4c", "#6e8c55"], pine: ["#4b6650"] };
 
 function crownGeometry(kind: number): THREE.BufferGeometry {
-  if (kind === 0) return new THREE.IcosahedronGeometry(0.4, 2).scale(1, 1.08, 1).translate(0, 0.78, 0);
+  if (kind === 0) return new THREE.IcosahedronGeometry(0.38, 1).scale(1, 1.15, 1).translate(0, 0.8, 0);
   if (kind === 1) {
     const a = new THREE.ConeGeometry(0.42, 0.62, 10).translate(0, 0.62, 0);
     const b = new THREE.ConeGeometry(0.32, 0.5, 10).translate(0, 0.98, 0);
@@ -44,10 +47,11 @@ interface TreesProps {
   reducedMotion?: boolean;
   /** Seconds before the first tree appears. */
   delay?: number;
+  palette?: TreePalette;
 }
 
 /** Stylised trees in three shapes, popping in as the city assembles. */
-export function Trees({ trees, leaving = false, reducedMotion = false, delay = 0.2 }: TreesProps) {
+export function Trees({ trees, leaving = false, reducedMotion = false, delay = 0.2, palette = DEFAULT_PALETTE }: TreesProps) {
   const groups = useMemo(() => {
     const byKind: number[][] = [[], [], []];
     trees.forEach((t, i) => byKind[t.kind].push(i));
@@ -93,13 +97,20 @@ export function Trees({ trees, leaving = false, reducedMotion = false, delay = 0
     groups.forEach((members, k) => {
       const crown = crowns.current[k];
       if (!crown) return;
+      const colors = k === 1 ? palette.pine : palette.foliage;
       members.forEach((ti, slot) => {
         const t = trees[ti];
-        const palette = k === 1 ? PINE : t.variant > 0.92 ? AUTUMN : FOLIAGE;
-        color.set(palette[Math.floor(t.variant * 1000) % palette.length]);
+        color.set(colors[Math.floor(t.variant * 1000) % colors.length]);
         crown.setColorAt(slot, color);
       });
       if (crown.instanceColor) crown.instanceColor.needsUpdate = true;
+    });
+  }, [groups, trees, palette]);
+
+  useLayoutEffect(() => {
+    groups.forEach((_, k) => {
+      const crown = crowns.current[k];
+      if (!crown) return;
       // Hidden until each tree's pop-in begins.
       crown.instanceMatrix.array.fill(0);
       trunks.current[k]?.instanceMatrix.array.fill(0);

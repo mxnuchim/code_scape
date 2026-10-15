@@ -4,6 +4,9 @@ import type { LayoutResult } from "@/lib/layout/cityLayout";
 import type { DependencyGraph } from "@/lib/analysis/imports/trace";
 import type { RepoRef, GitHubErrorKind, RateLimitInfo } from "@/lib/github/types";
 import type { RepoUrlErrorKind } from "@/lib/github/parseRepoUrl";
+import type { CityStyleId } from "@/theme/cityStyles";
+import type { TimeMode } from "@/theme/timeOfDay";
+import { browserStorage, DEFAULT_PREFERENCES, loadPreferences, savePreferences, type ColorLens } from "./preferences";
 
 export type Phase = "landing" | "loading" | "city" | "error";
 
@@ -70,7 +73,14 @@ interface CityState {
   assembled: boolean;
   camera: CameraApi | null;
 
+  /** Visual preferences; persisted, and never change the data. */
+  cityStyle: CityStyleId;
+  timeMode: TimeMode;
+  colorLens: ColorLens;
+
   set: (partial: Partial<CityState>) => void;
+  setPreference: (partial: Partial<Pick<CityState, "cityStyle" | "timeMode" | "colorLens">>) => void;
+  hydratePreferences: () => void;
   hover: (t: Target | null) => void;
   select: (t: Target | null, opts?: { fly?: boolean }) => void;
   toggleCategory: (c: Category) => void;
@@ -110,7 +120,18 @@ export const useCity = create<CityState>((set, get) => ({
   assembled: false,
   camera: null,
 
+  ...DEFAULT_PREFERENCES,
+
   set: (partial) => set(partial),
+
+  setPreference: (partial) => {
+    set(partial);
+    const { cityStyle, timeMode, colorLens } = get();
+    savePreferences(browserStorage(), { cityStyle, timeMode, colorLens });
+  },
+
+  // Called once on the client after mount, so server and client render the same first frame.
+  hydratePreferences: () => set(loadPreferences(browserStorage())),
 
   hover: (t) => {
     if (!sameTarget(get().hovered, t)) set({ hovered: t });

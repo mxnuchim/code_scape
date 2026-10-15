@@ -3,17 +3,18 @@
 import { Environment, Lightformer } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Suspense, useEffect, useMemo, useState } from "react";
-import * as THREE from "three";
 import type { RepoModel } from "@/lib/analysis/types";
 import type { LayoutResult } from "@/lib/layout/cityLayout";
 import { useCity } from "@/state/store";
-import { WORLD } from "@/theme/palette";
+import { CITY_STYLES } from "@/theme/cityStyles";
+import { profileHeight } from "@/lib/layout/styleHeights";
 import { Buildings, type BuildingVisualState } from "./Buildings";
 import { CameraRig } from "./CameraRig";
 import { City } from "./City";
 import { Effects } from "./Effects";
+import { EnvironmentRig } from "./EnvironmentRig";
 import { buildLandingTown } from "./landingTown";
-import { Blueprint, Clouds, Island, Ocean, SkyDome, SUN_DIRECTION } from "./Landscape";
+import { Blueprint, Clouds, Island, Ocean, SkyDome } from "./Landscape";
 import { worldUniforms } from "./materials";
 import { consumeShadowDirty, markShadowsDirty } from "./shadows";
 import { SignPost } from "./SignPost";
@@ -35,38 +36,6 @@ function WorldClock() {
   return null;
 }
 
-function Sun({ size, tier }: { size: number; tier: "high" | "low" }) {
-  const light = useMemo(() => {
-    const l = new THREE.DirectionalLight(WORLD.sun, 2.5);
-    l.castShadow = true;
-    return l;
-  }, []);
-  useEffect(() => {
-    const half = size * 0.62 + 6;
-    const cam = light.shadow.camera;
-    cam.left = -half;
-    cam.right = half;
-    cam.top = half;
-    cam.bottom = -half;
-    cam.near = 1;
-    cam.far = size * 3 + 160;
-    cam.updateProjectionMatrix();
-    light.position.copy(SUN_DIRECTION).multiplyScalar(size * 1.2 + 70);
-    light.shadow.mapSize.setScalar(tier === "high" ? 4096 : 2048);
-    light.shadow.bias = -0.0004;
-    light.shadow.normalBias = 0.035;
-    light.shadow.map?.dispose();
-    light.shadow.map = null;
-    markShadowsDirty(2);
-  }, [light, size, tier]);
-  return (
-    <>
-      <primitive object={light} />
-      <primitive object={light.target} />
-    </>
-  );
-}
-
 interface RenderedCity {
   key: number;
   model: RepoModel;
@@ -81,8 +50,16 @@ export function Scene() {
   const tier = useCity((s) => s.tier);
   const reducedMotion = useCity((s) => s.reducedMotion);
   const error = useCity((s) => s.error);
+  const cityStyle = useCity((s) => s.cityStyle);
+  const lens = useCity((s) => s.colorLens);
+  const style = CITY_STYLES[cityStyle];
 
   const town = useMemo(() => buildLandingTown(), []);
+  // The landing village follows the chosen style too.
+  const townBuildings = useMemo(
+    () => town.buildings.map((b) => ({ ...b, height: profileHeight(b.archetype, b.height, style.heights) })),
+    [town, style],
+  );
 
   // Keep the previous city around while it sinks away.
   const [rendered, setRendered] = useState<RenderedCity | null>(null);
@@ -121,20 +98,19 @@ export function Scene() {
   return (
     <>
       <WorldClock />
-      <color attach="background" args={[WORLD.horizon]} />
-      <fog attach="fog" args={[WORLD.fog, size * 1.6 + 30, size * 5 + 260]} />
-      <hemisphereLight args={[WORLD.hemiSky, WORLD.hemiGround, 1.05]} />
-      <Sun size={size} tier={tier} />
-      <Environment resolution={64} frames={1} environmentIntensity={0.45}>
-        <Lightformer intensity={2} color="#fff1dc" position={[0, 6, 0]} rotation-x={Math.PI / 2} scale={[12, 12, 1]} />
-        <Lightformer intensity={1.2} color="#cfe5ff" position={[-6, 2, -4]} scale={[10, 4, 1]} />
-        <Lightformer intensity={1} color="#ffd8b0" position={[6, 1, 4]} scale={[10, 3, 1]} />
+      <EnvironmentRig size={size} />
+      {/* Studio reflections for glass and water; their strength follows the time of day. */}
+      <Environment resolution={128} frames={1} environmentIntensity={0.6}>
+        <Lightformer intensity={1.6} color="#f4f6f8" position={[0, 8, 0]} rotation-x={Math.PI / 2} scale={[16, 16, 1]} />
+        <Lightformer intensity={1.1} color="#c9dcf2" position={[-8, 2, -5]} scale={[14, 3, 1]} />
+        <Lightformer intensity={0.7} color="#f2e2cc" position={[8, 1.5, 5]} scale={[14, 2.5, 1]} />
+        <Lightformer intensity={0.35} color="#9aa7b8" position={[0, 1, 9]} scale={[18, 2, 1]} />
       </Environment>
 
       <SkyDome />
       <Ocean island={island} />
       <Clouds radius={size} reducedMotion={reducedMotion} />
-      <Island island={island} city={rendered?.layout.city ?? null} plaza={rendered?.layout.plaza ?? null} reducedMotion={reducedMotion} />
+      <Island style={style} island={island} city={rendered?.layout.city ?? null} plaza={rendered?.layout.plaza ?? null} reducedMotion={reducedMotion} />
 
       <Blueprint width={town.plot.width} depth={town.plot.depth} active={!rendered && (phase === "landing" || phase === "error")} />
       <Blueprint width={island.width - 3} depth={island.depth - 3} active={phase === "loading"} />
@@ -142,13 +118,15 @@ export function Scene() {
       {townMounted && (
         <group>
           <Buildings
-            buildings={town.buildings}
+            buildings={townBuildings}
             state={STATIC_STATE}
+            style={style}
+            lens={lens}
             leaving={townLeaving}
             onLeft={() => setTownMounted(false)}
             reducedMotion={reducedMotion}
           />
-          <Trees trees={town.trees} leaving={townLeaving} reducedMotion={reducedMotion} delay={0.05} />
+          <Trees trees={town.trees} leaving={townLeaving} reducedMotion={reducedMotion} delay={0.05} palette={style.trees} />
         </group>
       )}
 

@@ -5,7 +5,8 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { parseRepoUrl, type RepoUrlErrorKind } from "@/lib/github/parseRepoUrl";
 import { loadRepo, SAMPLE_REPOS } from "@/state/loader";
 import { useCity } from "@/state/store";
-import { BrandMark, IconArrowRight, IconGitHub, IconHelp, IconSparkle } from "./icons";
+import { BrandMark, IconArrowRight, IconGitHub, IconHelp } from "./icons";
+import { EnvironmentControl } from "./EnvironmentControl";
 
 const ERROR_COPY: Record<RepoUrlErrorKind, (detail?: string) => string> = {
   empty: () => "Paste a GitHub repository link to start building.",
@@ -67,103 +68,116 @@ export function Landing() {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, transition: { duration: 0.35 } }}
     >
-      <header className="flex items-center justify-between p-4 sm:p-6">
-        <div className="pointer-events-auto flex items-center gap-2.5 rounded-full py-1.5 pr-4 pl-1.5 glass">
-          <BrandMark size={30} />
-          <span className="font-display text-[1.05rem] font-bold tracking-tight">CodeScape</span>
+      <header className="flex items-start justify-between gap-2 p-3 sm:p-5">
+        <div className="glass pointer-events-auto flex h-10 items-center gap-2 rounded-lg px-3 text-ink">
+          <BrandMark size={20} />
+          <span className="text-[14px] font-semibold tracking-tight">CodeScape</span>
         </div>
-        <button
-          type="button"
-          className="btn btn-quiet pointer-events-auto px-3.5 py-2 text-sm glass"
-          onClick={() => useCity.setState({ panel: "help" })}
-        >
-          <IconHelp size={16} />
-          <span className="hidden sm:inline">How it works</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="hidden sm:block">
+            <EnvironmentControl />
+          </div>
+          <div className="sm:hidden">
+            <EnvironmentControl compact />
+          </div>
+          <button
+            type="button"
+            className="glass icon-btn pointer-events-auto h-10 w-10 rounded-lg"
+            onClick={() => useCity.setState({ panel: "help" })}
+            aria-label="How CodeScape works"
+            title="How it works"
+          >
+            <IconHelp size={17} />
+          </button>
+        </div>
       </header>
 
       <div className="flex-1" />
 
       <motion.section
-        className="pointer-events-auto mx-auto w-full max-w-[640px] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-[7vh]"
-        initial={{ y: 28, opacity: 0 }}
-        animate={{ y: 0, opacity: 1, transition: { delay: 0.25, type: "spring", stiffness: 140, damping: 20 } }}
-        exit={{ y: 24, opacity: 0, scale: 0.98, transition: { duration: 0.3 } }}
+        className="pointer-events-auto w-full px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:max-w-[560px] sm:px-0 sm:pb-[6vh] sm:pl-[5vw]"
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1, transition: { delay: 0.25, duration: 0.5, ease: [0.2, 0.8, 0.2, 1] } }}
+        exit={{ y: 16, opacity: 0, transition: { duration: 0.25 } }}
       >
-        <div className="mb-4 text-center sm:mb-5">
-          <p className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-white/60 px-3 py-1 text-[0.72rem] font-semibold tracking-wide text-ink-soft uppercase backdrop-blur-sm">
-            <IconSparkle size={13} /> A city for every codebase
-          </p>
-          <h1 className="font-display text-[2rem] leading-[1.02] font-extrabold tracking-[-0.03em] text-ink sm:text-[3.1rem]" style={{ textShadow: "0 2px 18px rgba(255,248,238,0.9)" }}>
-            Turn any GitHub repo into a living miniature city
+        <div className="glass-strong rounded-xl p-4 sm:p-5">
+          <p className="eyebrow mb-2">Software architecture, rendered as a city</p>
+          <h1 className="text-[24px] leading-[1.15] font-semibold tracking-[-0.02em] text-ink sm:text-[30px]">
+            Walk through any codebase.
           </h1>
-        </div>
+          <p className="mt-2 text-[13px] leading-relaxed text-ink-soft">
+            Paste a public GitHub repository. Folders become districts, files become buildings, and imports traced from the source become
+            transit lines. Everything is drawn from the real file tree.
+          </p>
 
-        <form onSubmit={onSubmit} className="glass-strong rounded-[26px] p-2" noValidate>
-          <div key={shakeKey} className={`flex items-center gap-2 ${shakeKey ? "shake" : ""}`}>
-            <label htmlFor="repo-url" className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[20px] bg-white/70 px-3.5 py-2.5 ring-1 ring-black/5 focus-within:ring-2 focus-within:ring-accent/60">
-              <IconGitHub size={20} className="shrink-0 text-ink" />
-              <input
-                ref={inputRef}
-                id="repo-url"
-                type="text"
-                inputMode="url"
-                autoComplete="off"
-                autoCapitalize="off"
-                spellCheck={false}
-                placeholder="github.com/owner/repository"
-                value={text}
-                onChange={(e) => {
-                  setText(e.target.value);
-                  if (inputError) useCity.setState({ inputError: null });
-                }}
-                onPaste={onPaste}
-                aria-invalid={Boolean(inputError)}
-                aria-describedby={inputError ? "repo-url-error" : "repo-url-hint"}
-                className="min-w-0 flex-1 bg-transparent font-mono text-[0.95rem] text-ink outline-none placeholder:text-ink-faint"
-              />
-            </label>
-            <button type="submit" className="btn btn-primary shrink-0 px-4 py-3 text-[0.95rem] sm:px-5">
-              <span className="hidden sm:inline">Build city</span>
-              <IconArrowRight size={18} />
-            </button>
-          </div>
-          <div className="px-3 pt-2 pb-1">
-            {errorMessage ? (
-              <p id="repo-url-error" role="alert" className="text-[0.82rem] font-medium text-[#b4461f]">
-                {errorMessage}
-              </p>
-            ) : (
-              <p id="repo-url-hint" className="text-[0.78rem] text-ink-faint">
-                Public repositories only. Pasting a link starts building right away.
-              </p>
-            )}
-          </div>
-        </form>
-
-        <div className="mt-3 flex flex-col items-center gap-2 sm:mt-4">
-          <div className="flex w-full items-center gap-2 overflow-x-auto px-1 pb-1 sm:justify-center sm:overflow-visible">
-            <span className="shrink-0 text-[0.78rem] font-semibold text-ink-soft">Try</span>
-            {SAMPLE_REPOS.map((s, i) => (
-              <button
-                key={`${s.owner}/${s.repo}`}
-                type="button"
-                className={`chip shrink-0 ${i === 0 ? "border-accent/30 bg-white" : ""}`}
-                onClick={() => {
-                  setText(`github.com/${s.owner}/${s.repo}`);
-                  void loadRepo({ owner: s.owner, repo: s.repo });
-                }}
+          <form onSubmit={onSubmit} className="mt-4" noValidate>
+            <div key={shakeKey} className={`flex items-center gap-2 ${shakeKey ? "shake" : ""}`}>
+              <label
+                htmlFor="repo-url"
+                className="flex h-10 min-w-0 flex-1 items-center gap-2.5 rounded-lg border border-white/10 bg-black/30 px-3 focus-within:border-accent/70"
               >
-                <IconGitHub size={13} />
-                <span className="font-semibold">
-                  {s.owner}/{s.repo}
-                </span>
-                <span className="text-ink-faint">{s.note}</span>
+                <IconGitHub size={16} className="shrink-0 text-ink-soft" />
+                <input
+                  ref={inputRef}
+                  id="repo-url"
+                  type="text"
+                  inputMode="url"
+                  autoComplete="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  placeholder="github.com/owner/repository"
+                  value={text}
+                  onChange={(e) => {
+                    setText(e.target.value);
+                    if (inputError) useCity.setState({ inputError: null });
+                  }}
+                  onPaste={onPaste}
+                  aria-invalid={Boolean(inputError)}
+                  aria-describedby={inputError ? "repo-url-error" : "repo-url-hint"}
+                  className="min-w-0 flex-1 bg-transparent font-mono text-[13px] text-ink outline-none placeholder:text-ink-faint"
+                />
+              </label>
+              <button type="submit" className="btn btn-primary h-10 shrink-0 px-4 text-[13px]">
+                Build
+                <IconArrowRight size={15} />
               </button>
-            ))}
+            </div>
+            <div className="pt-2">
+              {errorMessage ? (
+                <p id="repo-url-error" role="alert" className="text-[12px] text-orange-300">
+                  {errorMessage}
+                </p>
+              ) : (
+                <p id="repo-url-hint" className="text-[12px] text-ink-faint">
+                  Public repositories only. Pasting a link starts the build.
+                </p>
+              )}
+            </div>
+          </form>
+
+          <div className="mt-4 border-t border-white/[0.07] pt-3">
+            <p className="eyebrow mb-2">Examples</p>
+            <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 sm:flex-wrap sm:overflow-visible">
+              {SAMPLE_REPOS.map((s) => (
+                <button
+                  key={`${s.owner}/${s.repo}`}
+                  type="button"
+                  className="chip shrink-0"
+                  onClick={() => {
+                    setText(`github.com/${s.owner}/${s.repo}`);
+                    void loadRepo({ owner: s.owner, repo: s.repo });
+                  }}
+                >
+                  <span className="font-mono text-[11.5px]">
+                    {s.owner}/{s.repo}
+                  </span>
+                  <span className="text-[11px] text-ink-faint">{s.note}</span>
+                </button>
+              ))}
+            </div>
           </div>
-          <p className="text-center text-[0.72rem] text-ink-soft/90">
-            Reads the file tree through GitHub&apos;s public API. Repository code is never run.
+          <p className="mt-3 font-mono text-[10.5px] tracking-wide text-ink-faint uppercase">
+            Reads the file tree via GitHub&apos;s public API · repository code is never executed
           </p>
         </div>
       </motion.section>

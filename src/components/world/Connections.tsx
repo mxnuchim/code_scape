@@ -2,7 +2,7 @@
 
 import { Html, QuadraticBezierLine } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { DependencyGraph } from "@/lib/analysis/imports/trace";
 import type { RepoModel } from "@/lib/analysis/types";
@@ -146,18 +146,39 @@ export function SelectionArcs({
   );
 }
 
-/** District-to-district flows, aggregated from traced imports only. */
-export function TransitFlows({
-  model,
-  layout,
-  graph,
-  reducedMotion,
-}: {
-  model: RepoModel;
-  layout: LayoutResult;
-  graph: DependencyGraph;
-  reducedMotion: boolean;
-}) {
+/** An illuminated elevated route. It brightens towards the importing side's target. */
+function Viaduct({ from, to, lift, radius }: { from: THREE.Vector3; to: THREE.Vector3; lift: number; radius: number }) {
+  const geometry = useMemo(() => {
+    const mid = from.clone().lerp(to, 0.5);
+    mid.y = Math.max(from.y, to.y) + lift;
+    const curve = new THREE.QuadraticBezierCurve3(from, mid, to);
+    const g = new THREE.TubeGeometry(curve, 64, radius, 6, false);
+    const uv = g.getAttribute("uv");
+    const colors = new Float32Array(uv.count * 3);
+    const a = new THREE.Color(WORLD.importsIn).multiplyScalar(0.55);
+    const b = new THREE.Color(WORLD.importsOut).multiplyScalar(1.35);
+    const c = new THREE.Color();
+    for (let i = 0; i < uv.count; i++) {
+      c.copy(a).lerp(b, uv.getX(i));
+      c.toArray(colors, i * 3);
+    }
+    g.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+    return g;
+  }, [from, to, lift, radius]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  return (
+    <mesh geometry={geometry} raycast={noRaycast} renderOrder={6}>
+      <meshBasicMaterial vertexColors toneMapped={false} transparent opacity={0.9} />
+    </mesh>
+  );
+}
+
+/**
+ * District-to-district transit, aggregated from traced imports only. Routes
+ * run above the skyline so they never hide buildings; width shows how many
+ * imports a route carries. They are static: nothing here implies runtime traffic.
+ */
+export function TransitFlows({ model, layout, graph }: { model: RepoModel; layout: LayoutResult; graph: DependencyGraph }) {
   const flows = useMemo(() => {
     const counts = new Map<string, number>();
     for (const e of graph.edges) {
@@ -170,15 +191,17 @@ export function TransitFlows({
       const key = `${da}\u0000${db}`;
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
+    let skyline = 4;
+    for (const b of layout.buildings) skyline = Math.max(skyline, b.y + b.height);
     const anchor = (district: string) => {
       if (district === "") {
         const p = layout.plaza;
-        return p ? new THREE.Vector3(p.x, 1.2, p.z) : new THREE.Vector3(0, 1.2, 0);
+        return p ? new THREE.Vector3(p.x, p.top + 0.4, p.z) : new THREE.Vector3(0, 0.6, 0);
       }
       const i = layout.plateIndex.get(district);
       if (i === undefined) return null;
       const p = layout.plates[i];
-      return new THREE.Vector3(p.x, p.top + 1.2, p.z);
+      return new THREE.Vector3(p.x, p.top + 0.4, p.z);
     };
     return [...counts.entries()]
       .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
@@ -188,7 +211,9 @@ export function TransitFlows({
         const from = anchor(a);
         const to = anchor(b);
         if (!from || !to) return null;
-        return { key, from, to, count, a, b, lift: 3 + from.distanceTo(to) * 0.35 };
+        // Directed pairs (a→b and b→a) bow to different heights so both stay visible.
+        const lift = skyline * 0.95 + from.distanceTo(to) * 0.18 + (a < b ? 0 : 1.6);
+        return { key, from, to, count, a, b, lift };
       })
       .filter((f): f is NonNullable<typeof f> => f !== null);
   }, [model, layout, graph]);
@@ -201,15 +226,7 @@ export function TransitFlows({
         mid.y = Math.max(f.from.y, f.to.y) + f.lift * 0.5;
         return (
           <group key={f.key}>
-            <Arc
-              from={f.from}
-              to={f.to}
-              color={WORLD.importsOut}
-              width={1.4 + (Math.log2(f.count + 1) / Math.log2(max + 1)) * 4}
-              lift={f.lift}
-              speed={reducedMotion ? 0 : 1.1}
-              opacity={0.88}
-            />
+            <Viaduct from={f.from} to={f.to} lift={f.lift} radius={0.05 + (Math.log2(f.count + 1) / Math.log2(max + 1)) * 0.16} />
             {i < 14 && (
               <Html position={mid} center zIndexRange={[15, 10]} style={{ pointerEvents: "none" }}>
                 <div className="flow-chip">

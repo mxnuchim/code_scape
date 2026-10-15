@@ -6,6 +6,7 @@ import { formatCompact, formatDate, formatNumber, plural } from "@/lib/format";
 import { goToLanding } from "@/state/loader";
 import { useCity, type TraceState } from "@/state/store";
 import { FilterTray } from "./FilterTray";
+import { EnvironmentControl } from "./EnvironmentControl";
 import { RepoAvatar } from "./RepoAvatar";
 import {
   BrandMark,
@@ -36,18 +37,18 @@ function RepoChip() {
   return (
     <button
       type="button"
-      className="glass pointer-events-auto flex max-w-[min(360px,calc(100vw-9rem))] items-center gap-2.5 rounded-[18px] py-1.5 pr-3.5 pl-1.5 text-left transition-transform hover:-translate-y-px"
-      onClick={() => useCity.setState({ panel: panel === "repo" ? null : "repo", selected: null })}
+      className="glass pointer-events-auto flex h-11 max-w-[min(340px,calc(100vw-8.5rem))] items-center gap-2.5 rounded-lg pr-3 pl-1.5 text-left"
+      onClick={() => useCity.setState({ panel: panel === "repo" ? null : "repo", selected: null, filtersOpen: false })}
       aria-expanded={panel === "repo"}
       aria-label={`About ${meta.fullName}`}
     >
-      <RepoAvatar owner={meta.owner} size={34} />
+      <RepoAvatar owner={meta.owner} size={30} />
       <span className="min-w-0">
-        <span className="block truncate font-display text-[0.98rem] leading-tight font-bold tracking-tight">
-          <span className="font-semibold text-ink-soft">{meta.owner}/</span>
+        <span className="block truncate text-[14px] leading-tight font-semibold tracking-tight">
+          <span className="font-normal text-ink-soft">{meta.owner}/</span>
           {meta.repo}
         </span>
-        <span className="flex items-center gap-2 text-[0.72rem] text-ink-faint">
+        <span className="flex items-center gap-2 font-mono text-[11px] text-ink-faint">
           <span className="inline-flex items-center gap-0.5">
             <IconStar size={12} /> {formatCompact(meta.stars)}
           </span>
@@ -55,7 +56,7 @@ function RepoChip() {
             <IconBranch size={12} />
             <span className="truncate">{model.source === "bundled-snapshot" ? model.ref.slice(0, 7) : model.ref}</span>
           </span>
-          {badge && <span className="hidden truncate rounded-full bg-[#fff1cc] px-1.5 font-semibold text-[#8a5a00] sm:inline">{badge}</span>}
+          {badge && <span className="hidden truncate rounded bg-amber-400/10 px-1.5 font-mono text-[10px] uppercase tracking-wide text-amber-300 sm:inline">{badge}</span>}
         </span>
       </span>
     </button>
@@ -96,7 +97,7 @@ function TraceStatus() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 10 }}
-          className="glass flex items-center gap-2.5 rounded-full py-1.5 pr-3.5 pl-2 text-[0.78rem]"
+          className="glass flex items-center gap-2.5 rounded-lg py-1.5 pr-3 pl-2.5 text-[12px]"
           role="status"
         >
           <span className="spin block h-3.5 w-3.5 rounded-full border-2 border-teal border-t-transparent" />
@@ -104,7 +105,7 @@ function TraceStatus() {
           <span className="text-ink-faint tabular-nums">
             {formatNumber(trace.done)} / {formatNumber(trace.total)}
           </span>
-          <span className="h-1.5 w-16 overflow-hidden rounded-full bg-black/10">
+          <span className="h-1.5 w-16 overflow-hidden rounded-full bg-white/10">
             <span className="block h-full rounded-full bg-teal transition-[width] duration-200" style={{ width: `${(trace.done / Math.max(1, trace.total)) * 100}%` }} />
           </span>
         </motion.div>
@@ -115,7 +116,7 @@ function TraceStatus() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 10 }}
-          className="glass pointer-events-auto max-w-[min(92vw,520px)] rounded-full px-3.5 py-1.5 text-center text-[0.78rem] font-medium"
+          className="glass pointer-events-auto max-w-[min(92vw,520px)] rounded-lg px-3 py-1.5 text-center text-[0.78rem] font-medium"
           onClick={() => {
             setDismissed(trace);
             useCity.setState({ panel: "repo", selected: null });
@@ -146,7 +147,7 @@ function ControlCluster({ vertical }: { vertical: boolean }) {
         ? `Tracing imports… ${trace.done}/${trace.total}`
         : "No traced imports to show";
   return (
-    <div className={`glass pointer-events-auto flex gap-0.5 rounded-[18px] p-1 ${vertical ? "flex-col" : "flex-row"}`}>
+    <div className={`glass pointer-events-auto flex gap-0.5 rounded-lg p-1 ${vertical ? "flex-col" : "flex-row"}`}>
       {!vertical && (
         <button
           type="button"
@@ -171,7 +172,7 @@ function ControlCluster({ vertical }: { vertical: boolean }) {
           </button>
         </>
       )}
-      <span className={vertical ? "mx-2 my-0.5 h-px bg-black/10" : "mx-0.5 my-2 w-px bg-black/10"} />
+      <span className={vertical ? "mx-2 my-0.5 h-px bg-white/10" : "mx-0.5 my-2 w-px bg-white/10"} />
       <button
         type="button"
         className="icon-btn relative"
@@ -205,7 +206,7 @@ function Notices() {
   return (
     <button
       type="button"
-      className="pointer-events-auto mt-2 inline-flex items-center gap-1.5 rounded-full bg-[#fff1cc]/95 px-3 py-1.5 text-[0.74rem] font-semibold text-[#7a4f00] shadow-sm ring-1 ring-[#f5d27a]"
+      className="pointer-events-auto mt-2 inline-flex items-center gap-1.5 rounded-lg bg-amber-400/10 px-3 py-1.5 text-[0.74rem] font-semibold text-amber-300 shadow-sm ring-1 ring-amber-400/30"
       onClick={() => useCity.setState({ panel: "repo", selected: null })}
     >
       <IconAlert size={14} /> GitHub truncated this tree. The city is partial.
@@ -228,12 +229,12 @@ export function Hud() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="glass pointer-events-auto hidden h-[46px] w-[46px] place-items-center rounded-[16px] transition-transform hover:-translate-y-px sm:grid"
+              className="glass pointer-events-auto hidden h-11 w-11 place-items-center rounded-lg text-ink sm:grid"
               onClick={() => goToLanding()}
               aria-label="CodeScape home"
               title="CodeScape"
             >
-              <BrandMark size={28} />
+              <BrandMark size={20} />
             </button>
             <RepoChip />
           </div>
@@ -242,31 +243,41 @@ export function Hud() {
         <div className="flex-1" />
         <button
           type="button"
-          className="glass pointer-events-auto absolute top-4 left-1/2 hidden h-[46px] -translate-x-1/2 items-center gap-2.5 rounded-full pr-2 pl-4 text-[0.88rem] text-ink-soft transition-transform hover:-translate-y-px lg:flex"
+          className="glass pointer-events-auto absolute top-4 left-1/2 hidden h-11 -translate-x-1/2 items-center gap-2.5 rounded-lg pr-2 pl-3.5 text-[13px] text-ink-soft hover:text-ink xl:flex"
           onClick={() => useCity.setState({ searchOpen: !searchOpen })}
           aria-label="Search files and folders"
         >
-          <IconSearch size={17} />
-          <span className="w-56 text-left">Search files and folders</span>
+          <IconSearch size={15} />
+          <span className="w-52 text-left">Search files and folders</span>
           <span className="kbd">/</span>
         </button>
-        <button
-          type="button"
-          className="glass pointer-events-auto grid h-[46px] w-[46px] place-items-center rounded-[16px] lg:hidden"
-          onClick={() => useCity.setState({ searchOpen: true })}
-          aria-label="Search files and folders"
-        >
-          <IconSearch size={19} />
-        </button>
-        <button
-          type="button"
-          className="btn btn-quiet glass pointer-events-auto h-[46px] w-[46px] shrink-0 sm:w-auto sm:px-4"
-          onClick={() => goToLanding()}
-          aria-label="Build a new city"
-        >
-          <IconPlus size={18} />
-          <span className="hidden text-[0.88rem] sm:inline">New city</span>
-        </button>
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex items-center gap-2">
+            <div className="hidden md:block">
+              <EnvironmentControl />
+            </div>
+            <button
+              type="button"
+              className="glass icon-btn pointer-events-auto h-11 w-11 rounded-lg xl:hidden"
+              onClick={() => useCity.setState({ searchOpen: true })}
+              aria-label="Search files and folders"
+            >
+              <IconSearch size={17} />
+            </button>
+            <button
+              type="button"
+              className="glass btn pointer-events-auto h-11 w-11 shrink-0 text-ink-soft hover:text-ink sm:w-auto sm:px-3.5"
+              onClick={() => goToLanding()}
+              aria-label="Build a new city"
+            >
+              <IconPlus size={16} />
+              <span className="hidden text-[13px] sm:inline">New city</span>
+            </button>
+          </div>
+          <div className="md:hidden">
+            <EnvironmentControl compact />
+          </div>
+        </div>
       </div>
 
       {/* Bottom: legend & filters (desktop), status, controls */}

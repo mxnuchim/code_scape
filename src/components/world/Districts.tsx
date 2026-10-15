@@ -7,35 +7,41 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { LabelLayout, LaneLayout, PlateLayout } from "@/lib/layout/types";
 import { DISTRICT_TINTS, WORLD } from "@/theme/palette";
+import type { CityStyle } from "@/theme/cityStyles";
 import { roundedRectPoints, slabGeometry } from "./shapes";
+import { liveEnvironment } from "./EnvironmentRig";
 
 const noRaycast = () => {};
-const LABEL_FONT = "/fonts/bricolage-700.woff";
+const LABEL_FONT = "/fonts/geist-mono-500.woff";
 
 function plateRadius(p: PlateLayout) {
-  return Math.min(p.depth === 1 ? 0.55 : p.depth === 2 ? 0.32 : 0.2, p.width / 3, p.depth_ / 3);
+  return Math.min(p.depth === 1 ? 0.22 : 0.12, p.width / 4, p.depth_ / 4);
 }
 
-function plateColor(p: PlateLayout, out: THREE.Color): THREE.Color {
-  const districtTint = DISTRICT_TINTS[Math.floor(p.tint * DISTRICT_TINTS.length) % DISTRICT_TINTS.length];
-  out.set(districtTint);
-  if (p.depth > 1) {
-    // Nested blocks alternate slightly lighter and darker.
-    out.offsetHSL(0, -0.04, p.depth % 2 === 0 ? 0.045 : -0.02);
-  }
-  if (p.aggregated) out.offsetHSL(0, -0.05, -0.05);
+const tint = new THREE.Color();
+
+/**
+ * City blocks are paved in the style's sidewalk stone. Each top-level district
+ * keeps a faint tint of its own so neighbouring districts stay distinguishable.
+ */
+function plateColor(p: PlateLayout, style: CityStyle, out: THREE.Color): THREE.Color {
+  out.set(style.ground.sidewalk);
+  tint.set(DISTRICT_TINTS[Math.floor(p.tint * DISTRICT_TINTS.length) % DISTRICT_TINTS.length]);
+  out.lerp(tint, style.ground.districtTint * (p.depth === 1 ? 1.4 : 0.8));
+  if (p.depth > 1) out.offsetHSL(0, 0, p.depth % 2 === 0 ? 0.035 : -0.02);
+  if (p.aggregated) out.offsetHSL(0, -0.03, -0.05);
   return out;
 }
 
 /** All folder plates merged into one mesh with vertex colours. */
-function buildPlatesGeometry(plates: PlateLayout[]): THREE.BufferGeometry | null {
+function buildPlatesGeometry(plates: PlateLayout[], style: CityStyle): THREE.BufferGeometry | null {
   if (plates.length === 0) return null;
   const color = new THREE.Color();
   const side = new THREE.Color();
   const parts = plates.map((p) => {
-    const g = slabGeometry(p.width, p.depth_, plateRadius(p), p.thickness, p.top, Math.min(0.05, p.thickness / 3), 4);
+    const g = slabGeometry(p.width, p.depth_, plateRadius(p), p.thickness, p.top, Math.min(0.025, p.thickness / 3), 3);
     g.translate(p.x, 0, p.z);
-    plateColor(p, color);
+    plateColor(p, style, color);
     side.copy(color).offsetHSL(0, 0.02, -0.12);
     const normals = g.getAttribute("normal");
     const colors = new Float32Array(normals.count * 3);
@@ -55,6 +61,7 @@ function buildPlatesGeometry(plates: PlateLayout[]): THREE.BufferGeometry | null
 }
 
 interface DistrictsProps {
+  style: CityStyle;
   plates: PlateLayout[];
   lanes: LaneLayout[];
   labels: LabelLayout[];
@@ -66,8 +73,13 @@ interface DistrictsProps {
   revealAt: number;
 }
 
-export function Districts({ plates, lanes, labels, hoveredId, selectedId, isolate, onHover, onSelect, revealAt }: DistrictsProps) {
-  const geometry = useMemo(() => buildPlatesGeometry(plates), [plates]);
+export function Districts({ style, plates, lanes, labels, hoveredId, selectedId, isolate, onHover, onSelect, revealAt }: DistrictsProps) {
+  const geometry = useMemo(() => buildPlatesGeometry(plates, style), [plates, style]);
+  // Painted text contrasts with the paving by day; at night it's lit pale.
+  const dayLabel = useMemo(() => {
+    const c = new THREE.Color(style.ground.sidewalk);
+    return c.r * 0.3 + c.g * 0.59 + c.b * 0.11 > 0.32 ? "#24272c" : "#e6e1d6";
+  }, [style]);
   useEffect(() => () => geometry?.dispose(), [geometry]);
 
   // Invisible boxes for picking: cheaper than raycasting the merged mesh.
@@ -109,7 +121,7 @@ export function Districts({ plates, lanes, labels, hoveredId, selectedId, isolat
     <group>
       {geometry && (
         <mesh geometry={geometry} receiveShadow raycast={noRaycast}>
-          <meshStandardMaterial vertexColors roughness={0.94} />
+          <meshStandardMaterial vertexColors roughness={0.9} />
         </mesh>
       )}
       {plates.length > 0 && (
@@ -126,13 +138,13 @@ export function Districts({ plates, lanes, labels, hoveredId, selectedId, isolat
           <meshBasicMaterial />
         </instancedMesh>
       )}
-      <Lanes lanes={lanes} />
+      <Lanes lanes={lanes} color={style.ground.lane} />
       {hovered && hovered.id !== selected?.id && <PlateOutline plate={hovered} color="#ffffff" width={2} opacity={0.85} />}
       {selected && <PlateOutline plate={selected} color={WORLD.select} width={3.2} opacity={1} />}
       {isolated && isolated.id !== selected?.id && <PlateOutline plate={isolated} color="#7cc3ff" width={2.4} opacity={0.9} dashed />}
       {/* Text suspends while its font loads; keep that from blanking the world. */}
       <Suspense fallback={null}>
-        <DistrictLabels labels={labels} revealAt={revealAt} />
+        <DistrictLabels labels={labels} revealAt={revealAt} dayColor={dayLabel} />
       </Suspense>
     </group>
   );
@@ -160,7 +172,7 @@ function PlateOutline({ plate, color, width, opacity, dashed = false }: { plate:
 }
 
 /** Dashed centre lines on the main avenues between top-level districts. */
-function Lanes({ lanes }: { lanes: LaneLayout[] }) {
+function Lanes({ lanes, color }: { lanes: LaneLayout[]; color: string }) {
   const mesh = useRef<THREE.InstancedMesh>(null);
   const dashes = useMemo(() => {
     const out: { x: number; z: number; horizontal: boolean }[] = [];
@@ -193,7 +205,7 @@ function Lanes({ lanes }: { lanes: LaneLayout[] }) {
   return (
     <instancedMesh key={dashes.length} ref={mesh} args={[undefined, undefined, dashes.length]} receiveShadow raycast={noRaycast} frustumCulled={false}>
       <boxGeometry args={[1, 0.012, 1]} />
-      <meshStandardMaterial color={WORLD.lane} roughness={0.8} />
+      <meshStandardMaterial color={color} roughness={0.6} />
     </instancedMesh>
   );
 }
@@ -201,7 +213,9 @@ function Lanes({ lanes }: { lanes: LaneLayout[] }) {
 const MAX_DEEP_LABELS = 90;
 
 /** Folder names painted on the ground. Deeper labels fade in as you get closer. */
-function DistrictLabels({ labels, revealAt }: { labels: LabelLayout[]; revealAt: number }) {
+function DistrictLabels({ labels, revealAt, dayColor }: { labels: LabelLayout[]; revealAt: number; dayColor: string }) {
+  const [isNight, setIsNight] = useState(false);
+  const color = isNight ? "#d9dce2" : dayColor;
   const shown = useMemo(() => {
     const top = labels.filter((l) => l.depth === 1);
     const deep = labels
@@ -218,6 +232,8 @@ function DistrictLabels({ labels, revealAt }: { labels: LabelLayout[]; revealAt:
   const [flipped, setFlipped] = useState(false);
 
   useFrame(() => {
+    const nightNow = liveEnvironment.night > 0.5;
+    if (nightNow !== isNight) setIsNight(nightNow);
     camera.getWorldDirection(tmp);
     const shouldFlip = tmp.z > 0.15 ? true : tmp.z < -0.15 ? false : flipped;
     if (shouldFlip !== flipped) setFlipped(shouldFlip);
@@ -246,16 +262,16 @@ function DistrictLabels({ labels, revealAt }: { labels: LabelLayout[]; revealAt:
           font={LABEL_FONT}
           position={[flipped ? l.x + l.maxWidth : l.x, l.y + 0.004, l.z]}
           rotation={[-Math.PI / 2, 0, flipped ? Math.PI : 0]}
-          fontSize={l.size}
+          fontSize={l.size * 0.82}
           anchorX="left"
           anchorY="middle"
-          color={WORLD.ink}
+          color={color}
           fillOpacity={0}
-          letterSpacing={-0.01}
+          letterSpacing={0.06}
           raycast={noRaycast}
           renderOrder={1}
         >
-          {l.text}
+          {l.text.toUpperCase()}
         </Text>
       ))}
     </>

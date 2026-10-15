@@ -10,6 +10,9 @@ import { Trees } from "./Trees";
 import { Beacon, GroundRing, HoverLabel, PlateHoverLabel } from "./Markers";
 import { SelectionArcs, TransitFlows, relationsFor } from "./Connections";
 import { WORLD } from "@/theme/palette";
+import { CITY_STYLES } from "@/theme/cityStyles";
+import { styleLayout } from "@/lib/layout/styleHeights";
+import { Streetlights } from "./Streetlights";
 
 interface CityProps {
   model: RepoModel;
@@ -25,7 +28,16 @@ function inFolder(dirPath: string, id: string, kind: "file" | "block", folder: s
   return kind === "block" && (id === folder || id.startsWith(prefix));
 }
 
-export function City({ model, layout, leaving, onLeft }: CityProps) {
+export function City({ model, layout: baseLayout, leaving, onLeft }: CityProps) {
+  const cityStyle = useCity((s) => s.cityStyle);
+  const lens = useCity((s) => s.colorLens);
+  const style = CITY_STYLES[cityStyle];
+  // Same buildings, same places; only heights are reinterpreted by the style.
+  const layout = useMemo(() => styleLayout(baseLayout, style.heights), [baseLayout, style]);
+  const trees = useMemo(
+    () => layout.trees.filter((t) => ((t.variant * 7.13) % 1) < style.trees.density),
+    [layout, style],
+  );
   const hovered = useCity((s) => s.hovered);
   const selected = useCity((s) => s.selected);
   const hiddenCategories = useCity((s) => s.hiddenCategories);
@@ -96,6 +108,7 @@ export function City({ model, layout, leaving, onLeft }: CityProps) {
   return (
     <group>
       <Districts
+        style={style}
         plates={layout.plates}
         lanes={layout.lanes}
         labels={layout.labels}
@@ -109,6 +122,8 @@ export function City({ model, layout, leaving, onLeft }: CityProps) {
       <Buildings
         buildings={layout.buildings}
         state={visualState}
+        style={style}
+        lens={lens}
         interactive={!leaving}
         leaving={leaving}
         onLeft={onLeft}
@@ -116,7 +131,8 @@ export function City({ model, layout, leaving, onLeft }: CityProps) {
         onHover={(i) => hover(i === null ? null : { kind: "building", id: layout.buildings[i].id })}
         onSelect={(i) => select({ kind: "building", id: layout.buildings[i].id })}
       />
-      <Trees trees={layout.trees} leaving={leaving} reducedMotion={reducedMotion} />
+      <Trees trees={trees} leaving={leaving} reducedMotion={reducedMotion} palette={style.trees} />
+      <Streetlights lamps={layout.lamps} top={0.04} />
 
       {!leaving && hoveredBuilding && hoveredBuilding.id !== selectedBuilding?.id && (
         <>
@@ -137,7 +153,7 @@ export function City({ model, layout, leaving, onLeft }: CityProps) {
         <SelectionArcs model={model} layout={layout} graph={graph} selectedId={selectedBuilding.id} reducedMotion={reducedMotion} />
       )}
       {!leaving && graph && transit && !selectedBuilding && (
-        <TransitFlows model={model} layout={layout} graph={graph} reducedMotion={reducedMotion} />
+        <TransitFlows model={model} layout={layout} graph={graph} />
       )}
     </group>
   );

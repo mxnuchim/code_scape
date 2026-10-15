@@ -74,6 +74,16 @@ describe("buildCityLayout", () => {
     }
   });
 
+  it("places streetlights inside the city", () => {
+    expect(layout.lamps.length).toBeGreaterThan(0);
+    for (const l of layout.lamps) {
+      expect(l.x).toBeGreaterThanOrEqual(layout.city.minX);
+      expect(l.x).toBeLessThanOrEqual(layout.city.maxX);
+      expect(l.z).toBeGreaterThanOrEqual(layout.city.minZ);
+      expect(l.z).toBeLessThanOrEqual(layout.city.maxZ);
+    }
+  });
+
   it("draws aggregated folders as single blocks", () => {
     const big = buildRepoModel(snapshotOf(syntheticRepo(900)), { budget: 200 });
     const l = buildCityLayout(big);

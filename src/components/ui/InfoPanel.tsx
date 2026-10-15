@@ -20,7 +20,7 @@ import { Sheet } from "./Sheet";
 const LANDMARK_LABEL = {
   readme: "Town hall · root README",
   manifest: "Clock tower · package manifest",
-  entry: "Lighthouse · likely entry point",
+  entry: "Beacon · likely entry point",
   license: "Monument · license",
 } as const;
 
@@ -30,14 +30,14 @@ function Breadcrumbs({ path, isFile }: { path: string; isFile: boolean }) {
   const dirs = isFile ? parts.slice(0, -1) : parts;
   return (
     <nav aria-label="Location" className="flex flex-wrap items-center gap-0.5 font-mono text-[0.74rem] text-ink-faint">
-      <button type="button" className="rounded px-1 hover:bg-black/5 hover:text-ink" onClick={() => select({ kind: "district", id: "" })}>
+      <button type="button" className="rounded px-1 hover:bg-white/[0.06] hover:text-ink" onClick={() => select({ kind: "district", id: "" })}>
         /
       </button>
       {dirs.map((seg, i) => {
         const p = dirs.slice(0, i + 1).join("/");
         return (
           <span key={p} className="flex items-center">
-            <button type="button" className="rounded px-1 hover:bg-black/5 hover:text-ink" onClick={() => select({ kind: "district", id: p })}>
+            <button type="button" className="rounded px-1 hover:bg-white/[0.06] hover:text-ink" onClick={() => select({ kind: "district", id: p })}>
               {seg}
             </button>
             <span>/</span>
@@ -84,7 +84,7 @@ function RelationList({ items, layout, tone }: { items: { id: string; files: num
         return (
           <li key={id}>
             <button type="button" className="row-btn" onClick={() => select({ kind: "building", id })}>
-              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: tone === "out" ? "#f59e2c" : "#2bb3a6" }} />
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: tone === "out" ? "var(--accent)" : "var(--teal)" }} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[0.84rem] font-semibold">{name}</span>
                 <span className="block truncate font-mono text-[0.68rem] text-ink-faint">{isBlock ? `block · ${plural(files, "file")}` : b.dirPath || "/"}</span>
@@ -149,7 +149,7 @@ function Connections({ buildingId, files, trace, model, layout }: { buildingId: 
       <div className="space-y-3">
         <div>
           <p className="mb-1 flex items-center gap-1.5 text-[0.78rem] font-semibold">
-            <span className="h-2 w-4 rounded-full bg-[#f59e2c]" /> Imports {rel.imports.length > 0 && <span className="text-ink-faint">· {rel.imports.length}</span>}
+            <span className="h-0.5 w-4 rounded-full bg-amber" /> Imports {rel.imports.length > 0 && <span className="text-ink-faint">· {rel.imports.length}</span>}
           </p>
           {single && !graph.traced.has(single.path) ? (
             <p className="text-[0.8rem] text-ink-soft">Not traced. {untracedReason(single, graph)}</p>
@@ -163,7 +163,7 @@ function Connections({ buildingId, files, trace, model, layout }: { buildingId: 
         </div>
         <div>
           <p className="mb-1 flex items-center gap-1.5 text-[0.78rem] font-semibold">
-            <span className="h-2 w-4 rounded-full bg-[#2bb3a6]" /> Imported by {rel.importedBy.length > 0 && <span className="text-ink-faint">· {rel.importedBy.length}</span>}
+            <span className="h-0.5 w-4 rounded-full bg-teal" /> Imported by {rel.importedBy.length > 0 && <span className="text-ink-faint">· {rel.importedBy.length}</span>}
           </p>
           {rel.importedBy.length ? (
             <RelationList items={rel.importedBy} layout={layout} tone="in" />
@@ -196,7 +196,7 @@ function FileView({ building, file, model, layout, trace }: { building: Building
           <Fact label="Size" value={formatBytes(file.size)} />
           <Fact label="Folder" value={<span className="font-mono text-[0.8rem]">{file.dirPath || "/"}</span>} />
         </dl>
-        <p className="mt-3 flex items-start gap-2 rounded-2xl bg-black/[0.035] p-3 text-[0.78rem] leading-relaxed text-ink-soft">
+        <p className="mt-3 flex items-start gap-2 rounded-lg bg-white/[0.05] p-3 text-[0.78rem] leading-relaxed text-ink-soft">
           <span className="mt-0.5 shrink-0 text-ink">
             <ArchetypeGlyph archetype={building.archetype} size={18} color={languageColor(file.language)} />
           </span>
@@ -305,11 +305,11 @@ function DistrictView({ dir, model, trace }: { dir: DirNode; model: RepoModel; t
         <Section title="Traced flows" aside={<span className="text-[0.68rem] text-ink-faint">file imports</span>}>
           <div className="grid grid-cols-2 gap-3 text-[0.78rem]">
             <div>
-              <p className="mb-1 font-semibold text-[#c26a10]">Imports from</p>
+              <p className="mb-1 font-semibold text-amber-300">Imports from</p>
               {flows.out.length ? flows.out.map(([d, n]) => <p key={d} className="flex justify-between gap-2"><span className="truncate font-mono">{d}</span><span className="text-ink-faint tabular-nums">{n}</span></p>) : <p className="text-ink-faint">none traced</p>}
             </div>
             <div>
-              <p className="mb-1 font-semibold text-[#17736a]">Imported by</p>
+              <p className="mb-1 font-semibold text-teal-300">Imported by</p>
               {flows.inn.length ? flows.inn.map(([d, n]) => <p key={d} className="flex justify-between gap-2"><span className="truncate font-mono">{d}</span><span className="text-ink-faint tabular-nums">{n}</span></p>) : <p className="text-ink-faint">none traced</p>}
             </div>
           </div>
@@ -344,11 +344,11 @@ export function InfoPanel() {
         label = `Details for ${title}`;
         header = (
           <div className="flex items-start gap-3">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl ring-1 ring-black/5" style={{ background: `${languageColor(b.language)}33` }}>
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg ring-1 ring-white/10" style={{ background: `${languageColor(b.language)}33` }}>
               <ArchetypeGlyph archetype={b.archetype} size={26} color={languageColor(b.language)} />
             </span>
             <div className="min-w-0">
-              <h2 className="truncate font-display text-[1.25rem] leading-tight font-bold tracking-tight" title={b.id}>
+              <h2 className="truncate text-[16px] leading-tight font-semibold tracking-tight" title={b.id}>
                 {title}
               </h2>
               {b.id !== "#overflow" && <Breadcrumbs path={b.id} isFile={!isBlock} />}
@@ -386,11 +386,11 @@ export function InfoPanel() {
         label = `Details for ${title}`;
         header = (
           <div className="flex items-start gap-3">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#e9f2e0] text-[#4d7a3a] ring-1 ring-black/5">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-white/[0.06] text-ink-soft ring-1 ring-white/10">
               <IconFolder size={24} />
             </span>
             <div className="min-w-0">
-              <h2 className="truncate font-display text-[1.25rem] leading-tight font-bold tracking-tight">{title}</h2>
+              <h2 className="truncate text-[16px] leading-tight font-semibold tracking-tight">{title}</h2>
               {dir.path ? <Breadcrumbs path={dir.path} isFile={false} /> : <p className="font-mono text-[0.74rem] text-ink-faint">repository root</p>}
             </div>
           </div>

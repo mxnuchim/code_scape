@@ -4,8 +4,10 @@ import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { BuildingLayout } from "@/lib/layout/types";
-import { FIXED_ROLE_COLORS, STYLES, styleIndexFor, type ColorRole, type MaterialKind } from "./buildingGeometries";
-import { ROOF_COLORS, WORLD, languageColor } from "@/theme/palette";
+import { FIXED_ROLE_COLORS, kitFor, variantIndexFor, type ColorRole, type MaterialKind } from "./buildingGeometries";
+import { CATEGORY_COLORS, WORLD, languageColor } from "@/theme/palette";
+import type { CityStyle } from "@/theme/cityStyles";
+import type { ColorLens } from "@/state/preferences";
 import { markShadowsDirty } from "./shadows";
 import { getSharedMaterials } from "./sharedMaterials";
 
@@ -20,6 +22,8 @@ export interface BuildingVisualState {
 interface BuildingsProps {
   buildings: BuildingLayout[];
   state: BuildingVisualState;
+  style: CityStyle;
+  lens: ColorLens;
   interactive?: boolean;
   leaving?: boolean;
   onLeft?: () => void;
@@ -34,6 +38,8 @@ interface PartMesh {
   local: Float32Array;
   base: Float32Array;
   glow: boolean;
+  material: MaterialKind;
+  color: ColorRole;
 }
 
 interface Group {
@@ -105,25 +111,48 @@ const dimColor = new THREE.Color(WORLD.dim);
 const RISE_FILTERED = 0.045;
 const now = () => performance.now() / 1000;
 
-function roleColor(role: ColorRole, b: BuildingLayout, out: THREE.Color) {
-  if (role === "body") {
-    out.set(languageColor(b.language));
-    // Small per-building variation keeps blocks of the same language from looking stamped.
-    const shift = (b.variant - 0.5) * 0.12;
-    out.offsetHSL(0, -0.02, 0.05 + shift * 0.6);
-    return out;
+const pick = (list: string[], b: BuildingLayout, salt: number) => list[Math.floor(b.variant * 9973 + salt) % list.length];
+
+/**
+ * A part's colour. The lens decides what facades encode: believable materials
+ * (architectural), the file's language, or its role. The language band always
+ * shows the language, so it's never lost.
+ */
+function roleColor(role: ColorRole, material: MaterialKind, b: BuildingLayout, style: CityStyle, lens: ColorLens, out: THREE.Color) {
+  const f = style.facade;
+  switch (role) {
+    case "body": {
+      const glass = material === "curtain" || material === "curtainRound";
+      if (lens === "language") {
+        out.set(languageColor(b.language));
+        if (glass) out.multiplyScalar(0.8);
+      } else if (lens === "role") {
+        out.set(CATEGORY_COLORS[b.category]);
+      } else {
+        out.set(pick(glass ? f.glass : f.stone, b, 0));
+      }
+      // Small per-building variation so neighbours don't look stamped.
+      return out.offsetHSL(0, 0, (b.variant - 0.5) * 0.05);
+    }
+    case "roof":
+      return out.set(pick(f.roof, b, 3));
+    case "trim":
+    case "stone":
+      return out.set(f.trim);
+    case "metal":
+      return out.set(f.metal);
+    case "language":
+      return out.set(languageColor(b.language));
+    default:
+      return out.set(FIXED_ROLE_COLORS[role] ?? "#ffffff");
   }
-  if (role === "roof") {
-    const options = ROOF_COLORS[b.archetype];
-    if (options?.length) return out.set(options[Math.floor(b.variant * 7919) % options.length]);
-    return out.set(languageColor(b.language)).multiplyScalar(0.72);
-  }
-  return out.set(FIXED_ROLE_COLORS[role] ?? "#ffffff");
 }
 
 export function Buildings({
   buildings,
   state,
+  style,
+  lens,
   interactive = false,
   leaving = false,
   onLeft,
@@ -142,7 +171,7 @@ export function Buildings({
     const slotOf = new Int32Array(n);
     const byKey = new Map<string, number[]>();
     buildings.forEach((b, i) => {
-      const key = `${b.archetype}:${styleIndexFor(b.archetype, b.variant)}`;
+      const key = `${b.archetype}:${variantIndexFor(style.id, b)}`;
       const list = byKey.get(key) ?? [];
       list.push(i);
       byKey.set(key, list);
@@ -151,13 +180,13 @@ export function Buildings({
     const groups: Group[] = [];
     for (const [key, members] of byKey) {
       const [archetype, styleStr] = key.split(":") as [BuildingLayout["archetype"], string];
-      const style = STYLES[archetype][Number(styleStr)];
+      const def = kitFor(style.id, archetype)[Number(styleStr)];
       const gi = groups.length;
       members.forEach((bi, slot) => {
         groupOf[bi] = gi;
         slotOf[bi] = slot;
       });
-      const parts: PartMesh[] = style.parts.map((part) => {
+      const parts: PartMesh[] = def.parts.map((part) => {
         const mesh = new THREE.InstancedMesh(part.geometry(), matFor(part.material), members.length);
         mesh.castShadow = part.shadow !== false;
         mesh.receiveShadow = part.material !== "glow";
@@ -169,21 +198,18 @@ export function Buildings({
         const glow = part.material === "glow";
         members.forEach((bi, slot) => {
           const b = buildings[bi];
-          const p = part.place({ w: b.width, d: b.depth, h: b.height, v: b.variant });
-          local.set(p, slot * 6);
-          roleColor(part.color, b, tmpColor);
-          if (glow) tmpColor.multiplyScalar(1.7);
-          tmpColor.toArray(base, slot * 3);
+          local.set(part.place({ w: b.width, d: b.depth, h: b.height, v: b.variant }), slot * 6);
         });
-        mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(base), 3);
+        mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(base.length), 3);
         // Start invisible; the assembly animation raises everything.
         mesh.instanceMatrix.array.fill(0);
-        return { mesh, local, base, glow };
+        return { mesh, local, base, glow, material: part.material, color: part.color };
       });
       groups.push({ members, parts });
     }
     return { root, groups, groupOf, slotOf };
-  }, [buildings, n]);
+    // The kit depends only on the style's id; palettes are applied below.
+  }, [buildings, n, style.id]);
 
   const anim = useMemo(
     () => ({
@@ -256,17 +282,42 @@ export function Buildings({
     }
   };
 
-  // Assembly: rise in a wave from the centre.
+  // Colours follow the lens and the style's palette. Changing either repaints;
+  // it never rebuilds or re-lays out anything.
+  useLayoutEffect(() => {
+    for (const g of built.groups) {
+      for (const part of g.parts) {
+        g.members.forEach((bi, slot) => {
+          roleColor(part.color, part.material, buildings[bi], style, lens, tmpColor);
+          if (part.glow) tmpColor.multiplyScalar(1.7);
+          tmpColor.toArray(part.base, slot * 3);
+        });
+      }
+    }
+    for (let i = 0; i < n; i++) writeColor(i);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [built, style, lens]);
+
+  // Assembly: rise in a wave from the centre. When only the style changed,
+  // the same buildings re-rise quickly in their new architecture.
+  const assembledOnce = useRef(false);
+  const visibleRef = useRef(state.visible);
+  visibleRef.current = state.visible;
   useLayoutEffect(() => {
     const t = now();
+    const restyle = assembledOnce.current;
+    assembledOnce.current = true;
+    const visible = visibleRef.current;
     for (let i = 0; i < n; i++) {
-      const delay = reducedMotion ? 0 : buildings[i].delay;
-      anim.rise.set(i, 1, t, delay, reducedMotion ? 0.01 : 0.75, EASE_OUT_BACK);
+      const target = !visible || visible[i] === 1 ? 1 : RISE_FILTERED;
+      if (restyle) anim.rise.value[i] = 0;
+      const delay = reducedMotion ? 0 : buildings[i].delay * (restyle ? 0.3 : 1);
+      anim.rise.set(i, target, t, delay, reducedMotion ? 0.01 : restyle ? 0.55 : 0.75, EASE_OUT_BACK);
       anim.active.add(i);
     }
     anim.leftNotified = false;
     markShadowsDirty();
-    // Only on a new city; later visual changes are handled below.
+    // Only when the meshes are (re)built; later visual changes are handled below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [built]);
 

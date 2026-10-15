@@ -48,11 +48,11 @@ export function CompositionBar({
   const rest = entries.slice(max).reduce((s, [, v]) => s + v, 0);
   return (
     <div>
-      <div className="flex h-2.5 overflow-hidden rounded-full bg-black/5" role="img" aria-label={`Composition by ${unit}`}>
+      <div className="flex h-2.5 overflow-hidden rounded-full bg-white/[0.06]" role="img" aria-label={`Composition by ${unit}`}>
         {shown.map(([k, v]) => (
           <span key={k} style={{ width: `${(v / total) * 100}%`, background: colorFor(k) }} className="h-full first:rounded-l-full" />
         ))}
-        {rest > 0 && <span style={{ width: `${(rest / total) * 100}%` }} className="h-full bg-black/15" />}
+        {rest > 0 && <span style={{ width: `${(rest / total) * 100}%` }} className="h-full bg-white/15" />}
       </div>
       <ul className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
         {shown.map(([k, v]) => (
@@ -64,7 +64,7 @@ export function CompositionBar({
         ))}
         {rest > 0 && (
           <li className="flex items-center gap-1.5 text-[0.76rem] text-ink-faint">
-            <span className="h-2 w-2 rounded-[3px] bg-black/15" />
+            <span className="h-2 w-2 rounded-[3px] bg-white/15" />
             Other
             <span className="ml-auto tabular-nums">{format(rest)}</span>
           </li>
@@ -80,9 +80,9 @@ export const languageBar = (data: Record<string, number>, opts: { unit?: string;
 
 export function Section({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
   return (
-    <section className="border-t border-black/[0.06] px-5 py-4 first:border-t-0">
+    <section className="border-t border-white/[0.07] px-5 py-4 first:border-t-0">
       <div className="mb-2.5 flex items-center justify-between gap-2">
-        <h3 className="text-[0.7rem] font-bold tracking-[0.08em] text-ink-faint uppercase">{title}</h3>
+        <h3 className="text-[0.7rem] font-semibold tracking-[0.08em] text-ink-faint uppercase">{title}</h3>
         {aside}
       </div>
       {children}
@@ -101,10 +101,10 @@ export function Fact({ label, value }: { label: string; value: ReactNode }) {
 
 export function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "amber" | "teal" | "accent" }) {
   const tones = {
-    neutral: "bg-black/[0.05] text-ink-soft",
-    amber: "bg-[#fff1cc] text-[#8a5a00]",
-    teal: "bg-[#d8f3ef] text-[#17736a]",
+    neutral: "bg-white/[0.05] text-ink-soft",
+    amber: "bg-amber-400/10 text-amber-300",
+    teal: "bg-teal-400/10 text-teal-300",
     accent: "bg-accent-soft text-accent-deep",
   };
-  return <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.72rem] font-semibold ${tones[tone]}`}>{children}</span>;
+  return <span className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-[11.5px] font-medium ${tones[tone]}`}>{children}</span>;
 }

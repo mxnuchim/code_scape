@@ -21,11 +21,11 @@ export function WorldFallback({ reason }: { reason: keyof typeof COPY }) {
   const copy = COPY[reason];
   return (
     <div className="pointer-events-auto absolute inset-0 z-50 grid place-items-center p-4">
-      <section role="alert" className="glass-strong w-full max-w-[460px] rounded-[26px] p-6 text-center">
+      <section role="alert" className="glass-strong w-full max-w-[460px] rounded-xl p-6 text-center">
         <div className="mx-auto mb-3 w-fit">
           <BrandMark size={44} />
         </div>
-        <h2 className="font-display text-[1.4rem] font-bold tracking-tight">{copy.title}</h2>
+        <h2 className="text-[17px] font-semibold tracking-tight">{copy.title}</h2>
         <p className="mt-2 text-[0.9rem] leading-relaxed text-ink-soft">{copy.body}</p>
         <button type="button" className="btn btn-primary mt-5 px-5 py-2.5 text-sm" onClick={() => window.location.reload()}>
           Reload

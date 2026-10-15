@@ -160,24 +160,36 @@ export const IconGitHub = ({ size = 18, ...rest }: IconProps) => (
   </svg>
 );
 
-/** Brand mark: a tiny skyline in a rounded tile. */
-export const BrandMark = ({ size = 28 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden>
-    <defs>
-      <linearGradient id="bm-sky" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stopColor="#8fbbe6" />
-        <stop offset="1" stopColor="#f7d9bd" />
-      </linearGradient>
-    </defs>
-    <rect x="1" y="1" width="30" height="30" rx="9" fill="url(#bm-sky)" />
-    <rect x="5" y="17" width="5" height="9" rx="1.2" fill="#f3cd57" />
-    <rect x="11" y="9" width="6" height="17" rx="1.3" fill="#5b8ee6" />
-    <rect x="18" y="13" width="5" height="13" rx="1.2" fill="#4fae9b" />
-    <path d="M23.5 26v-6l2.5-2.4 2.5 2.4V26z" fill="#e8765a" />
-    <rect x="12.6" y="12" width="1.2" height="1.6" rx=".3" fill="#ffe7a3" />
-    <rect x="14.4" y="15" width="1.2" height="1.6" rx=".3" fill="#ffe7a3" />
-    <rect x="12.6" y="18" width="1.2" height="1.6" rx=".3" fill="#ffe7a3" />
-    <rect x="3" y="25.6" width="26" height="2.6" rx="1.3" fill="#a6cc7c" />
+/** Brand mark: a monoline skyline in a square frame, one lit tower. */
+export const BrandMark = ({ size = 22 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+    <rect x="1.5" y="1.5" width="21" height="21" rx="5" stroke="currentColor" strokeOpacity=".35" />
+    <path d="M6 18.5V11h3v7.5M10.5 18.5V6.5h3.5v12M15.5 18.5V9.5H18v9" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+    <path d="M10.5 6.5h3.5v12h-3.5z" fill="var(--accent)" fillOpacity=".9" />
+    <path d="M4.5 18.5h15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+);
+
+export const IconSun = (p: IconProps) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="3.6" />
+    <path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M6 18l1.4-1.4M16.6 7.4 18 6" />
+  </svg>
+);
+export const IconMoon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5z" />
+  </svg>
+);
+export const IconAuto = (p: IconProps) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="7.5" />
+    <path d="M12 4.5a7.5 7.5 0 0 1 0 15z" fill="currentColor" stroke="none" />
+  </svg>
+);
+export const IconBuildings = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M4 20V10h5v10M9 20V4h6v16M15 20v-8h5v8M3 20h18" />
   </svg>
 );
 
@@ -202,8 +214,11 @@ export function ArchetypeGlyph({ archetype, size = 18, color = "currentColor" }:
     ),
     silo: (
       <>
-        <rect x="8" y="9" width="8" height="11.5" rx="1.2" {...f} />
-        <path d="M7 9.5 12 3.5l5 6z" {...f} opacity=".7" />
+        <rect x="6" y="14" width="12" height="6.5" rx="0.8" {...f} />
+        <rect x="9" y="7" width="6" height="4.5" rx="0.8" {...f} opacity=".75" />
+        <path d="M8.6 7.2 12 4l3.4 3.2z" {...f} opacity=".6" />
+        <rect x="9.4" y="11.5" width="1" height="2.5" {...f} />
+        <rect x="13.6" y="11.5" width="1" height="2.5" {...f} />
       </>
     ),
     factory: (
@@ -265,9 +280,9 @@ export function ArchetypeGlyph({ archetype, size = 18, color = "currentColor" }:
     ),
     lighthouse: (
       <>
-        <path d="M9 20.5 10.2 8h3.6L15 20.5z" {...f} />
-        <rect x="9.6" y="5" width="4.8" height="3" rx=".8" fill="#ffd36b" />
-        <path d="M9.4 5 12 2.8 14.6 5z" {...f} opacity=".7" />
+        <path d="M9.5 20.5 10.4 9h3.2l.9 11.5z" {...f} />
+        <rect x="10" y="6.5" width="4" height="2.5" rx=".6" fill="var(--accent)" />
+        <path d="M10.6 6.5 12 2.5l1.4 4z" {...f} opacity=".7" />
       </>
     ),
     monument: (

@@ -40,7 +40,7 @@ export function SignPost({ text, tone = "warn", reducedMotion }: { text: string;
         <meshStandardMaterial color={board} roughness={0.85} />
       </mesh>
       <Text
-        font="/fonts/bricolage-700.woff"
+        font="/fonts/geist-600.woff"
         position={[0, 1.45, 0.13]}
         fontSize={0.34}
         maxWidth={2.6}

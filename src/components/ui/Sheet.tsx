@@ -46,8 +46,8 @@ export function Sheet({ open, side, label, onClose, header, children, footer, co
           aria-label={label}
           className={
             mobile
-              ? "glass-strong pointer-events-auto absolute inset-x-2 bottom-2 z-20 flex flex-col overflow-hidden rounded-[26px]"
-              : `glass-strong pointer-events-auto absolute ${desktopPos} z-20 flex w-[min(390px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[26px]`
+              ? "glass-strong pointer-events-auto absolute inset-x-2 bottom-2 z-20 flex flex-col overflow-hidden rounded-xl"
+              : `glass-strong pointer-events-auto absolute ${desktopPos} z-20 flex w-[min(390px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl`
           }
           style={mobile ? { height: expanded ? "86dvh" : "min(46dvh, 420px)", transition: "height 260ms cubic-bezier(.2,.8,.2,1)" } : undefined}
           initial={mobile ? { y: "105%" } : { x: side === "right" ? 40 : -40, opacity: 0 }}
@@ -70,7 +70,7 @@ export function Sheet({ open, side, label, onClose, header, children, footer, co
               onClick={() => setExpanded(!expanded)}
               onPointerDown={(e) => dragControls.start(e)}
             >
-              <span className="h-1.5 w-10 rounded-full bg-black/15" />
+              <span className="h-1.5 w-10 rounded-full bg-white/15" />
             </motion.button>
           )}
           <div className={`flex items-start gap-3 px-5 ${mobile ? "pt-1 pb-3" : "pt-5 pb-3"}`}>
@@ -88,7 +88,7 @@ export function Sheet({ open, side, label, onClose, header, children, footer, co
           >
             {children}
           </motion.div>
-          {footer && <div className="border-t border-black/[0.06] px-4 py-3">{footer}</div>}
+          {footer && <div className="border-t border-white/[0.07] px-4 py-3">{footer}</div>}
         </motion.aside>
       )}
     </AnimatePresence>

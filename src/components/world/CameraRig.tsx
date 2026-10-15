@@ -6,10 +6,18 @@ import { useCallback, useEffect, useRef } from "react";
 import * as THREE from "three";
 import type { CityBounds } from "@/lib/layout/types";
 import { useCity, type CameraApi } from "@/state/store";
+import { styleLayout } from "@/lib/layout/styleHeights";
+import { CITY_STYLES } from "@/theme/cityStyles";
+
+/** The current city as the active style draws it (heights matter for framing). */
+function styledLayout() {
+  const { layout, cityStyle } = useCity.getState();
+  return layout ? styleLayout(layout, CITY_STYLES[cityStyle].heights) : null;
+}
 
 const { ACTION } = CameraControlsImpl;
 const DEFAULT_AZIMUTH = 0.62;
-const CITY_POLAR = 0.94;
+const CITY_POLAR = 1.0;
 
 const v1 = new THREE.Vector3();
 const v2 = new THREE.Vector3();
@@ -102,7 +110,7 @@ export function CameraRig({ island, cityKey }: CameraRigProps) {
     const api: CameraApi = {
       flyToBuilding(id) {
         const c = ref.current;
-        const layout = useCity.getState().layout;
+        const layout = styledLayout();
         if (!c || !layout) return;
         const index = layout.buildingIndex.get(id);
         if (index === undefined) return;
@@ -119,7 +127,7 @@ export function CameraRig({ island, cityKey }: CameraRigProps) {
         applyFocalOffset(distance, true);
       },
       flyToDistrict(path) {
-        const layout = useCity.getState().layout;
+        const layout = styledLayout();
         if (!layout) return;
         if (path === "") {
           api.overview();
@@ -150,7 +158,7 @@ export function CameraRig({ island, cityKey }: CameraRigProps) {
         applyFocalOffset(distance, true);
       },
       overview() {
-        const layout = useCity.getState().layout;
+        const layout = styledLayout();
         const c = ref.current;
         if (!c) return;
         c.getSpherical(sph, true);
@@ -221,7 +229,7 @@ export function CameraRig({ island, cityKey }: CameraRigProps) {
     if (phase !== "city" || introDone.current === cityKey) return;
     introDone.current = cityKey;
     const c = ref.current;
-    const layout = useCity.getState().layout;
+    const layout = styledLayout();
     if (!c || !layout) return;
     c.smoothTime = reducedMotion ? 0.05 : 1.25;
     frameCity(c, layout.city, c.azimuthAngle + (reducedMotion ? 0 : 0.55), maxBuildingHeight(layout.buildings));

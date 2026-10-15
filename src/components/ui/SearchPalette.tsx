@@ -84,7 +84,7 @@ function Palette() {
 
   return (
         <motion.div
-          className="pointer-events-auto fixed inset-0 z-40 flex items-start justify-center bg-[#2c2a36]/10 px-3 pt-[10vh] backdrop-blur-[2px]"
+          className="pointer-events-auto fixed inset-0 z-40 flex items-start justify-center bg-black/45 px-3 pt-[10vh] backdrop-blur-[2px]"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -95,13 +95,13 @@ function Palette() {
           <motion.div
             role="dialog"
             aria-label="Search the city"
-            className="glass-strong w-full max-w-[580px] overflow-hidden rounded-[24px]"
+            className="glass-strong w-full max-w-[580px] overflow-hidden rounded-xl"
             initial={{ y: -14, scale: 0.98, opacity: 0 }}
             animate={{ y: 0, scale: 1, opacity: 1 }}
             exit={{ y: -10, scale: 0.98, opacity: 0 }}
             transition={{ type: "spring", stiffness: 380, damping: 30 }}
           >
-            <div className="flex items-center gap-3 border-b border-black/[0.06] px-4 py-3.5">
+            <div className="flex items-center gap-3 border-b border-white/[0.07] px-4 py-3.5">
               <IconSearch size={19} className="text-ink-soft" />
               <input
                 ref={inputRef}
@@ -139,9 +139,9 @@ function Palette() {
                         onClick={() => choose(hit)}
                       >
                         {file ? (
-                          <span className="h-3 w-3 shrink-0 rounded-[4px] ring-1 ring-black/10" style={{ background: languageColor(file.language) }} />
+                          <span className="h-3 w-3 shrink-0 rounded-[4px] ring-1 ring-white/15" style={{ background: languageColor(file.language) }} />
                         ) : (
-                          <IconFolder size={16} className="shrink-0 text-[#6c9a52]" />
+                          <IconFolder size={16} className="shrink-0 text-ink-faint" />
                         )}
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[0.88rem] font-semibold">
@@ -159,7 +159,7 @@ function Palette() {
                 })}
               </ul>
             )}
-            <div className="flex items-center gap-3 border-t border-black/[0.06] px-4 py-2 text-[0.7rem] text-ink-faint">
+            <div className="flex items-center gap-3 border-t border-white/[0.07] px-4 py-2 text-[0.7rem] text-ink-faint">
               <span>
                 <span className="kbd">↑</span> <span className="kbd">↓</span> to move
               </span>

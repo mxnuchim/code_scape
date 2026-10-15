@@ -1,16 +1,27 @@
 import type * as THREE from "three";
 import type { MaterialKind } from "./buildingGeometries";
-import { createClayMaterial, createGlassMaterial, createGlowMaterial, createWindowMaterial } from "./materials";
+import {
+  createAccentMaterial,
+  createClayMaterial,
+  createFacadeMaterial,
+  createGlassMaterial,
+  createGlowMaterial,
+  createMetalMaterial,
+} from "./materials";
 
 let shared: Record<MaterialKind, THREE.Material> | null = null;
 
-/** Building materials are shared by every city for the lifetime of the canvas. */
+/** Building materials are shared by every city and style for the lifetime of the canvas. */
 export function getSharedMaterials(): Record<MaterialKind, THREE.Material> {
   if (!shared) {
     shared = {
+      masonry: createFacadeMaterial("masonry"),
+      curtain: createFacadeMaterial("curtain"),
+      curtainRound: createFacadeMaterial("curtainRound"),
       clay: createClayMaterial(),
-      windows: createWindowMaterial(),
+      metal: createMetalMaterial(),
       glass: createGlassMaterial(),
+      accent: createAccentMaterial(),
       glow: createGlowMaterial(),
     };
   }
