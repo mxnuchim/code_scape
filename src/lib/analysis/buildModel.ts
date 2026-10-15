@@ -75,7 +75,7 @@ function filterEntries(entries: TreeEntry[]): FilterResult {
     .sort((a, b) => b.files - a.files || (a.path < b.path ? -1 : 1))
     .slice(0, 12);
 
-  return { kept, excluded: { files, bytes, byReason, topDirs, submodules: submodules.sort() } };
+  return { kept, excluded: { files, bytes, byReason, topDirs, submodules: submodules.sort(), skippedDirs: [] } };
 }
 
 function makeDir(path: string, parentPath: string | null): DirNode {
@@ -187,15 +187,17 @@ export function buildRepoModel(snapshot: RepoSnapshot, options: BuildModelOption
   const budget = options.budget ?? DEFAULT_BUILDING_BUDGET;
   const sorted = [...snapshot.entries].sort(byPath);
   const { kept, excluded } = filterEntries(sorted);
+  excluded.skippedDirs = [...(snapshot.skippedDirs ?? [])].sort(byPath);
 
   // Directories that hold a package manifest are packages.
   const packageDirs = new Set<string>();
   for (const entry of kept) {
     const slash = entry.path.lastIndexOf("/");
-    if (slash > 0 && isManifest(entry.path.slice(slash + 1))) packageDirs.add(entry.path.slice(0, slash));
+    if (isManifest(entry.path.slice(slash + 1))) packageDirs.add(slash > 0 ? entry.path.slice(0, slash) : "");
   }
 
   const root = makeDir("", null);
+  root.isPackage = packageDirs.has("");
   const dirsByPath = new Map<string, DirNode>([["", root]]);
   const ensureDir = (path: string): DirNode => {
     const existing = dirsByPath.get(path);
@@ -252,6 +254,7 @@ export function buildRepoModel(snapshot: RepoSnapshot, options: BuildModelOption
     meta: snapshot.meta,
     ref: snapshot.ref,
     source: snapshot.source,
+    origin: snapshot.origin ?? { kind: "github" },
     fetchedAt: snapshot.fetchedAt,
     capturedAt: snapshot.capturedAt,
     root,

@@ -14,27 +14,47 @@ export function RepoPanel() {
   const layout = useCity((s) => s.layout);
   const trace = useCity((s) => s.trace);
   const open = useCity((s) => s.panel === "repo");
+  const analysis = useCity((s) => s.analysis);
   if (!model || !layout) return null;
   const { meta, excluded, limits } = model;
-  const rate = getLastRateLimit();
+  const local = model.origin.kind === "local" ? model.origin : null;
+  const rate = local ? null : getLastRateLimit();
 
   const header = (
     <div className="flex items-start gap-3">
       <RepoAvatar owner={meta.owner} size={44} />
       <div className="min-w-0">
         <h2 className="truncate text-[16px] leading-tight font-semibold tracking-tight">
-          <span className="font-semibold text-ink-soft">{meta.owner}/</span>
+          {!local && <span className="font-semibold text-ink-soft">{meta.owner}/</span>}
           {meta.repo}
         </h2>
-        <a href={meta.htmlUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[0.76rem] font-semibold text-ink-soft hover:text-ink">
-          <IconGitHub size={13} /> View on GitHub <IconExternal size={12} />
-        </a>
+        {local ? (
+          <p className="truncate font-mono text-[0.72rem] text-ink-faint" title={local.root}>
+            {local.root}
+          </p>
+        ) : (
+          <a href={meta.htmlUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[0.76rem] font-semibold text-ink-soft hover:text-ink">
+            <IconGitHub size={13} /> View on GitHub <IconExternal size={12} />
+          </a>
+        )}
       </div>
     </div>
   );
 
   return (
     <Sheet open={open} side="left" label="About this repository" onClose={() => useCity.setState({ panel: null })} header={header}>
+      {local ? (
+        <Section title="Repository">
+          <dl className="grid grid-cols-2 gap-3">
+            <Fact label="Branch" value={<span className="font-mono text-[0.8rem]">{local.revision?.branch ?? "detached / none"}</span>} />
+            <Fact label="Commit" value={<span className="font-mono text-[0.8rem]">{local.revision?.commit?.slice(0, 10) ?? "unknown"}</span>} />
+          </dl>
+          <p className="mt-3 text-[0.76rem] leading-relaxed text-ink-soft">
+            Read from this machine&apos;s working tree, including uncommitted changes. Branch and commit come from <span className="font-mono">.git</span> files;
+            git itself is never run, and nothing is sent anywhere.
+          </p>
+        </Section>
+      ) : (
       <Section title="Repository">
         {meta.description && <p className="mb-3 text-[0.86rem] leading-relaxed text-ink-soft">{meta.description}</p>}
         <dl className="grid grid-cols-3 gap-3">
@@ -52,6 +72,7 @@ export function RepoPanel() {
           </div>
         )}
       </Section>
+      )}
 
       <Section title="In this city">
         <dl className="mb-3 grid grid-cols-3 gap-3">
@@ -64,7 +85,7 @@ export function RepoPanel() {
       </Section>
 
       <Section title="Left out on purpose">
-        {excluded.files === 0 ? (
+        {excluded.files === 0 && excluded.skippedDirs.length === 0 ? (
           <p className="text-[0.82rem] text-ink-soft">Nothing. Every file in the tree is in the city.</p>
         ) : (
           <>
@@ -81,6 +102,11 @@ export function RepoPanel() {
                   </li>
                 ))}
             </ul>
+            {excluded.skippedDirs.length > 0 && (
+              <p className="mt-2 text-[0.74rem] text-ink-soft">
+                Not scanned at all: <span className="font-mono text-[0.7rem]">{excluded.skippedDirs.slice(0, 5).map((d) => `${d.path}/`).join("  ")}</span>
+              </p>
+            )}
             {excluded.topDirs.length > 0 && (
               <p className="mt-2 truncate font-mono text-[0.7rem] text-ink-faint" title={excluded.topDirs.map((d) => d.path).join(", ")}>
                 {excluded.topDirs
@@ -136,22 +162,29 @@ export function RepoPanel() {
         {trace.status === "done" ? (
           <div className="space-y-2 text-[0.8rem] text-ink-soft">
             <p>
-              Read {formatNumber(trace.graph.traced.size)} of {formatNumber(trace.graph.eligible)} JavaScript, TypeScript and Python files and found{" "}
-              <b className="text-ink">{plural(trace.graph.edges.length, "import")}</b> between files in this repo.
+              Parsed {formatNumber(trace.graph.traced.size)} of {formatNumber(trace.graph.eligible)} JavaScript, TypeScript, Python and Go files and found{" "}
+              <b className="text-ink">{plural(trace.graph.edges.length, "import")}</b>
+              {analysis ? (
+                <>
+                  {" "}and <b className="text-ink">{plural(analysis.index.callEdges.length, "resolved call")}</b>
+                </>
+              ) : null}{" "}
+              between files in this repo.
             </p>
             {trace.graph.eligible > trace.graph.cap && (
               <p>Only the first {trace.graph.cap} are read (entry points first, then source by depth), so connections are partial.</p>
             )}
             {trace.graph.failed.size > 0 && <p>{plural(trace.graph.failed.size, "file")} couldn&apos;t be downloaded.</p>}
-            {trace.graph.skippedLarge > 0 && <p>{plural(trace.graph.skippedLarge, "file")} over 300 KB were skipped.</p>}
+            {trace.graph.skippedLarge > 0 && <p>{plural(trace.graph.skippedLarge, "file")} over the size limit were skipped.</p>}
+            {analysis && analysis.index.limits.withheld.length > 0 && <p>{plural(analysis.index.limits.withheld.length, "file")} that may hold secrets were listed but not read.</p>}
             {trace.graph.aliasSource && (
               <p>
                 Path aliases come from <span className="font-mono">{trace.graph.aliasSource}</span>.
               </p>
             )}
             <p className="text-[0.74rem] text-ink-faint">
-              Only relative and path-alias imports that resolve to a real file are drawn. Package imports, cross-package links in monorepos and
-              other languages aren&apos;t traced. Nothing is inferred from folders being near each other.
+              Only imports that resolve to a real file are drawn: relative paths, tsconfig aliases, Python modules and Go packages in this
+              module. Package imports and other languages aren&apos;t traced. Nothing is inferred from folders being near each other.
             </p>
           </div>
         ) : trace.status === "running" ? (
@@ -159,7 +192,7 @@ export function RepoPanel() {
             Tracing imports… {trace.done}/{trace.total} files read.
           </p>
         ) : trace.status === "unsupported" ? (
-          <p className="text-[0.8rem] text-ink-soft">No JavaScript, TypeScript or Python files, so no connections are traced.</p>
+          <p className="text-[0.8rem] text-ink-soft">No JavaScript, TypeScript, Python or Go files, so no connections are traced.</p>
         ) : trace.status === "error" ? (
           <p className="text-[0.8rem] text-ink-soft">Tracing failed: {trace.message}</p>
         ) : (
@@ -174,6 +207,8 @@ export function RepoPanel() {
               A snapshot bundled with CodeScape, captured from GitHub on {formatDate(model.capturedAt!)} at commit{" "}
               <span className="font-mono">{model.ref.slice(0, 7)}</span>. It may differ from the repository today.
             </>
+          ) : local ? (
+            <>Analysed on this machine {timeAgo(analysis?.analyzedAt ?? model.fetchedAt)}. Reload the page to pick up file changes.</>
           ) : model.source === "session-cache" ? (
             <>Fetched from GitHub {timeAgo(model.fetchedAt)} and reused from this session.</>
           ) : (

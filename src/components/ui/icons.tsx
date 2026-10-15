@@ -298,3 +298,26 @@ export function ArchetypeGlyph({ archetype, size = 18, color = "currentColor" }:
     </svg>
   );
 }
+export const IconRoute = (p: IconProps) => (
+  <svg {...base(p)}>
+    <circle cx="6" cy="18" r="2.2" />
+    <circle cx="18" cy="6" r="2.2" />
+    <path d="M8.2 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.8" />
+  </svg>
+);
+export const IconCode = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="m8.5 8-4 4 4 4M15.5 8l4 4-4 4M13.5 5.5l-3 13" />
+  </svg>
+);
+export const IconBook = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M5 4.5h9.5a3 3 0 0 1 3 3V20H8a3 3 0 0 1-3-3z" />
+    <path d="M5 17a3 3 0 0 1 3-3h9.5M9 8h5" />
+  </svg>
+);
+export const IconFlask = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M9.5 4h5M10.5 4v5.2L5.6 17.6A1.6 1.6 0 0 0 7 20h10a1.6 1.6 0 0 0 1.4-2.4l-4.9-8.4V4M8 14h8" />
+  </svg>
+);

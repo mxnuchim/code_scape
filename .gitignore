@@ -39,3 +39,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Code hook state
+/.claude/state/
+/.claude/settings.local.json
+
+# CLI bundle
+/dist/
+
+# tree-sitter WASM copied from node_modules (scripts/wasm-files.mjs)
+/public/wasm/
+
+# Playwright
+/test-results/
+/playwright-report/

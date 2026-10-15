@@ -9,10 +9,10 @@ import { IconCheck } from "./icons";
 import { RepoAvatar } from "./RepoAvatar";
 
 const STEPS: { id: LoadStage; title: string }[] = [
-  { id: "metadata", title: "Reading the deed" },
-  { id: "tree", title: "Surveying the land" },
-  { id: "analysis", title: "Zoning districts" },
-  { id: "assembling", title: "Raising buildings" },
+  { id: "metadata", title: "Repository details" },
+  { id: "tree", title: "File tree" },
+  { id: "analysis", title: "Classifying files" },
+  { id: "assembling", title: "Building the city" },
 ];
 
 const ORDER: LoadStage[] = ["metadata", "tree", "analysis", "layout", "assembling"];
@@ -37,8 +37,10 @@ export function LoadingStages() {
   const detail = (id: LoadStage): string | null => {
     switch (id) {
       case "metadata":
-        return model?.source === "bundled-snapshot" ? "Bundled snapshot" : "Repository details from GitHub";
+        if (repo?.owner === "local") return "Analysing the working tree on this machine";
+        return model?.source === "bundled-snapshot" ? "Bundled snapshot" : "Metadata from the GitHub API";
       case "tree":
+        if (repo?.owner === "local") return model ? "Received from the local CodeScape server" : "Walking files, parsing source";
         if (model?.source === "bundled-snapshot") return `Captured ${new Date(model.capturedAt!).toLocaleDateString()}`;
         if (fromCache) return "Already fetched this session";
         return bytes > 0 ? `${formatBytes(bytes)} of file tree received` : "Listing every file";
@@ -66,7 +68,7 @@ export function LoadingStages() {
           {repo && <RepoAvatar owner={repo.owner} size={36} />}
           <div className="min-w-0 flex-1">
             <p className="text-[0.7rem] font-semibold tracking-wide text-ink-faint uppercase">Building</p>
-            <p className="truncate text-[15px] font-semibold tracking-tight">{repo ? repoSlug(repo) : "…"}</p>
+            <p className="truncate text-[15px] font-semibold tracking-tight">{repo ? (repo.owner === "local" ? repo.repo : repoSlug(repo)) : "…"}</p>
           </div>
           {phase === "loading" && (
             <button type="button" className="btn btn-quiet px-3 py-1.5 text-xs" onClick={() => goToLanding()}>

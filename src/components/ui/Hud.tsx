@@ -21,6 +21,7 @@ import {
   IconTransit,
   IconZoomIn,
   IconZoomOut,
+  IconBook,
 } from "./icons";
 
 function RepoChip() {
@@ -28,12 +29,15 @@ function RepoChip() {
   const panel = useCity((s) => s.panel);
   if (!model) return null;
   const { meta } = model;
+  const local = model.origin.kind === "local";
   const badge =
     model.source === "bundled-snapshot"
       ? `Snapshot · ${formatDate(model.capturedAt!)}`
       : model.source === "session-cache"
         ? "Cached this session"
-        : null;
+        : local
+          ? "Local"
+          : null;
   return (
     <button
       type="button"
@@ -45,13 +49,15 @@ function RepoChip() {
       <RepoAvatar owner={meta.owner} size={30} />
       <span className="min-w-0">
         <span className="block truncate text-[14px] leading-tight font-semibold tracking-tight">
-          <span className="font-normal text-ink-soft">{meta.owner}/</span>
+          {!local && <span className="font-normal text-ink-soft">{meta.owner}/</span>}
           {meta.repo}
         </span>
         <span className="flex items-center gap-2 font-mono text-[11px] text-ink-faint">
-          <span className="inline-flex items-center gap-0.5">
-            <IconStar size={12} /> {formatCompact(meta.stars)}
-          </span>
+          {!local && (
+            <span className="inline-flex items-center gap-0.5">
+              <IconStar size={12} /> {formatCompact(meta.stars)}
+            </span>
+          )}
           <span className="inline-flex min-w-0 items-center gap-0.5">
             <IconBranch size={12} />
             <span className="truncate">{model.source === "bundled-snapshot" ? model.ref.slice(0, 7) : model.ref}</span>
@@ -141,8 +147,8 @@ function ControlCluster({ vertical }: { vertical: boolean }) {
   const transitHint =
     trace.status === "done"
       ? transit
-        ? "Hide transit between districts (T)"
-        : "Show transit between districts (T)"
+        ? "Hide import flows between districts (T)"
+        : "Show import flows between districts (T)"
       : trace.status === "running"
         ? `Tracing imports… ${trace.done}/${trace.total}`
         : "No traced imports to show";
@@ -180,7 +186,7 @@ function ControlCluster({ vertical }: { vertical: boolean }) {
         aria-label={transitHint}
         title={transitHint}
         disabled={!traceDone}
-        onClick={() => useCity.setState({ transit: !transit, selected: null })}
+        onClick={() => useCity.setState({ transit: !transit, selected: null, journey: null })}
       >
         <IconTransit />
         {trace.status === "running" && <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 animate-pulse rounded-full bg-teal" />}
@@ -214,8 +220,29 @@ function Notices() {
   );
 }
 
+function GuideButton() {
+  const open = useCity((s) => s.panel === "guide");
+  const ready = useCity((s) => s.analysis !== null);
+  return (
+    <button
+      type="button"
+      className="glass btn pointer-events-auto h-11 shrink-0 px-3 text-[13px] text-ink-soft hover:text-ink"
+      aria-pressed={open}
+      aria-label="Guide: overview, reading order and code journeys (G)"
+      title="Guide (G)"
+      onClick={() => useCity.getState().togglePanel("guide")}
+    >
+      <IconBook size={16} />
+      <span className="hidden sm:inline">Guide</span>
+      {!ready && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-teal" aria-hidden />}
+    </button>
+  );
+}
+
 export function Hud() {
   const searchOpen = useCity((s) => s.searchOpen);
+  const leftPanel = useCity((s) => s.panel === "guide" || s.panel === "repo");
+  const journeyActive = useCity((s) => s.journey !== null);
   return (
     <motion.div
       className="absolute inset-0"
@@ -237,6 +264,7 @@ export function Hud() {
               <BrandMark size={20} />
             </button>
             <RepoChip />
+            <GuideButton />
           </div>
           <Notices />
         </div>
@@ -282,12 +310,10 @@ export function Hud() {
 
       {/* Bottom: legend & filters (desktop), status, controls */}
       <div className="absolute inset-x-0 bottom-0 flex items-end gap-3 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] max-sm:bottom-16 sm:p-4">
-        <div className="hidden sm:block">
+        <div className={leftPanel ? "hidden" : "hidden sm:block"}>
           <FilterTray />
         </div>
-        <div className="flex flex-1 justify-center">
-          <TraceStatus />
-        </div>
+        <div className="flex flex-1 justify-center">{!journeyActive && <TraceStatus />}</div>
         <div className="hidden sm:block">
           <ControlCluster vertical />
         </div>

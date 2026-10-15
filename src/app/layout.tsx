@@ -6,9 +6,9 @@ const geist = Geist({ variable: "--font-geist", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "CodeScape · GitHub repositories as living 3D cities",
+  title: "CodeScape · Understand any codebase",
   description:
-    "Paste a public GitHub repository and explore its real structure as a miniature 3D city: districts for folders, buildings for files, transit lines for traced imports.",
+    "Explore a repository as a 3D architecture map: modules, entry points, dependencies and code journeys, each backed by file and line evidence. Works on GitHub repositories, local checkouts, and inside Claude Code via MCP.",
 };
 
 export const viewport: Viewport = {

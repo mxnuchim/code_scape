@@ -1,10 +1,13 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
+import { useRef } from "react";
 import { ARCHETYPE_INFO, type Archetype } from "@/lib/layout/archetypes";
 import { useCity } from "@/state/store";
 import { ArchetypeGlyph, IconClose } from "./icons";
 import { useMediaQuery } from "./common";
+import { BasisBadge } from "./Evidence";
+import { useFocusTrap } from "./useFocusTrap";
 
 const SHAPES: Archetype[] = ["tower", "lab", "silo", "factory", "house", "pavilion", "warehouse", "crates", "kiosk", "block"];
 const LANDMARKS: Archetype[] = ["townhall", "clocktower", "lighthouse", "monument"];
@@ -13,6 +16,8 @@ export function HelpPanel() {
   const open = useCity((s) => s.panel === "help");
   const touch = useMediaQuery("(pointer: coarse)");
   const close = () => useCity.setState({ panel: null });
+  const dialog = useRef<HTMLElement>(null);
+  useFocusTrap(dialog, open);
 
   return (
     <AnimatePresence>
@@ -25,7 +30,9 @@ export function HelpPanel() {
           onMouseDown={(e) => e.target === e.currentTarget && close()}
         >
           <motion.section
+            ref={dialog}
             role="dialog"
+            aria-modal="true"
             aria-label="How to read the city"
             className="glass-strong scroll-soft max-h-[88dvh] w-full max-w-[680px] overflow-y-auto rounded-xl p-5 sm:p-7"
             initial={{ y: 16, scale: 0.98, opacity: 0 }}
@@ -36,7 +43,7 @@ export function HelpPanel() {
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-[20px] leading-tight font-semibold tracking-tight">How to read the city</h2>
-                <p className="mt-1 text-[0.88rem] text-ink-soft">Everything you see comes from the repository&apos;s real file tree.</p>
+                <p className="mt-1 text-[0.88rem] text-ink-soft">Everything you see comes from the repository&apos;s real files. Nothing was run.</p>
               </div>
               <button type="button" className="icon-btn shrink-0" onClick={close} aria-label="Close help">
                 <IconClose />
@@ -48,15 +55,19 @@ export function HelpPanel() {
                 <h3 className="mb-2 text-[0.7rem] font-semibold tracking-[0.08em] text-ink-faint uppercase">The map</h3>
                 <ul className="space-y-2 text-[0.84rem] leading-snug text-ink-soft">
                   <li><b className="text-ink">Districts</b> are top-level folders, labelled on the ground. Blocks inside them are subfolders.</li>
-                  <li><b className="text-ink">Buildings</b> are files. Height follows file size on a log scale, so big files stand tall without dwarfing the rest.</li>
+                  <li><b className="text-ink">Buildings</b> are files. Height shows file size on a log scale; compare heights between buildings of the same shape.</li>
                   <li>
                     <b className="text-ink">Language</b> shows on each building&apos;s lit band, judged from the file extension. The
                     legend&apos;s lens can paint whole facades by language or role instead.
                   </li>
                   <li><b className="text-ink">Streets</b> separate folders. They show structure, not dependencies.</li>
                   <li>
-                    <b className="text-ink">Transit arcs</b> are imports read from the source of up to 300 JS, TS and Python files. An arc is drawn
-                    only when an import resolves to a real file in the repo.
+                    <b className="text-ink">Arcs</b> are imports and calls parsed from JavaScript, TypeScript, Python and Go source. An arc is drawn only
+                    when it resolves to a real file in the repo. They are static: they show code relationships, not traffic.
+                  </li>
+                  <li>
+                    <b className="text-[#c9c0ff]">Journeys</b> (violet, numbered) follow resolved calls from an entry point, such as an HTTP route, in
+                    source order. A dashed line rising out of a building means the code calls into a package.
                   </li>
                   <li>Dependencies, build output, caches and lockfiles are left out. The repo panel lists exactly what.</li>
                   <li>
@@ -95,6 +106,13 @@ export function HelpPanel() {
               </div>
             </div>
 
+            <h3 className="mt-6 mb-2 text-[0.7rem] font-semibold tracking-[0.08em] text-ink-faint uppercase">How we know</h3>
+            <ul className="grid gap-1.5 text-[0.82rem] text-ink-soft sm:grid-cols-3">
+              <li className="flex items-start gap-2"><BasisBadge basis="fact" /> Read from files or manifests.</li>
+              <li className="flex items-start gap-2"><BasisBadge basis="static-analysis" /> Parsed and resolved from source.</li>
+              <li className="flex items-start gap-2"><BasisBadge basis="heuristic" /> Inferred from names; a hint.</li>
+            </ul>
+
             <h3 className="mt-6 mb-2 text-[0.7rem] font-semibold tracking-[0.08em] text-ink-faint uppercase">Getting around</h3>
             {touch ? (
               <ul className="grid gap-1.5 text-[0.84rem] text-ink-soft sm:grid-cols-2">
@@ -109,8 +127,10 @@ export function HelpPanel() {
                 <li><span className="kbd">scroll</span> zoom towards the cursor</li>
                 <li><span className="kbd">W A S D</span> fly · <span className="kbd">Q E</span> turn · <span className="kbd">shift</span> faster</li>
                 <li><span className="kbd">/</span> search · <span className="kbd">F</span> focus · <span className="kbd">H</span> whole city</li>
-                <li><span className="kbd">T</span> transit · <span className="kbd">esc</span> step back</li>
-                <li><span className="kbd">?</span> this guide</li>
+                <li><span className="kbd">G</span> guide · <span className="kbd">T</span> import flows · <span className="kbd">esc</span> step back</li>
+                <li><span className="kbd">[</span> <span className="kbd">]</span> previous / next journey step</li>
+                <li><span className="kbd">↑ ↓ ← →</span> fly · <span className="kbd">+ −</span> zoom</li>
+                <li><span className="kbd">?</span> this help</li>
               </ul>
             )}
           </motion.section>

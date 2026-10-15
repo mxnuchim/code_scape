@@ -9,6 +9,7 @@ import { Districts } from "./Districts";
 import { Trees } from "./Trees";
 import { Beacon, GroundRing, HoverLabel, PlateHoverLabel } from "./Markers";
 import { SelectionArcs, TransitFlows, relationsFor } from "./Connections";
+import { JourneyPath, journeyBuildings } from "./JourneyPath";
 import { WORLD } from "@/theme/palette";
 import { CITY_STYLES } from "@/theme/cityStyles";
 import { styleLayout } from "@/lib/layout/styleHeights";
@@ -45,6 +46,7 @@ export function City({ model, layout: baseLayout, leaving, onLeft }: CityProps) 
   const isolate = useCity((s) => s.isolate);
   const trace = useCity((s) => s.trace);
   const transit = useCity((s) => s.transit);
+  const journey = useCity((s) => s.journey);
   const reducedMotion = useCity((s) => s.reducedMotion);
   const hover = useCity((s) => s.hover);
   const select = useCity((s) => s.select);
@@ -71,7 +73,11 @@ export function City({ model, layout: baseLayout, leaving, onLeft }: CityProps) 
     return arr;
   }, [layout, hiddenCategories, hiddenLanguages, isolate]);
 
+  const journeyIds = useMemo(() => (journey ? journeyBuildings(model, layout, journey.journey) : null), [journey, model, layout]);
+
   const focus = useMemo(() => {
+    // While a journey plays, only its buildings stay bright.
+    if (journeyIds && journeyIds.size > 0) return journeyIds;
     if (!selected) return null;
     if (selected.kind === "district") {
       const ids = new Set<string>();
@@ -82,7 +88,7 @@ export function City({ model, layout: baseLayout, leaving, onLeft }: CityProps) 
     const rel = relationsFor(model, layout, graph, selected.id);
     if (rel.imports.length === 0 && rel.importedBy.length === 0) return null;
     return new Set([selected.id, ...rel.imports.map((r) => r.id), ...rel.importedBy.map((r) => r.id)]);
-  }, [selected, graph, model, layout]);
+  }, [selected, graph, model, layout, journeyIds]);
 
   const hoveredIndex = hovered?.kind === "building" ? (layout.buildingIndex.get(hovered.id) ?? -1) : -1;
   const visualState = useMemo<BuildingVisualState>(
@@ -149,12 +155,9 @@ export function City({ model, layout: baseLayout, leaving, onLeft }: CityProps) 
           <Beacon building={selectedBuilding} reducedMotion={reducedMotion} />
         </>
       )}
-      {!leaving && graph && selectedBuilding && (
-        <SelectionArcs model={model} layout={layout} graph={graph} selectedId={selectedBuilding.id} reducedMotion={reducedMotion} />
-      )}
-      {!leaving && graph && transit && !selectedBuilding && (
-        <TransitFlows model={model} layout={layout} graph={graph} />
-      )}
+      {!leaving && journey && <JourneyPath model={model} layout={layout} journey={journey.journey} step={journey.step} />}
+      {!leaving && !journey && graph && selectedBuilding && <SelectionArcs model={model} layout={layout} graph={graph} selectedId={selectedBuilding.id} />}
+      {!leaving && !journey && graph && transit && !selectedBuilding && <TransitFlows model={model} layout={layout} graph={graph} />}
     </group>
   );
 }

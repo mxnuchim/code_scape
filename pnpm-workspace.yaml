@@ -1,3 +1,11 @@
 ignoredBuiltDependencies:
   - sharp
   - unrs-resolver
+  # Only the prebuilt .wasm files are used; native bindings are never built.
+  - tree-sitter
+  - tree-sitter-go
+  - tree-sitter-javascript
+  - tree-sitter-python
+  - tree-sitter-typescript
+  # esbuild's platform binary comes from its optional dependency.
+  - esbuild

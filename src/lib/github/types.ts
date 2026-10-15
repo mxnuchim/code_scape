@@ -33,7 +33,25 @@ export interface TreeEntry {
   size?: number;
 }
 
-export type SnapshotSource = "live" | "session-cache" | "bundled-snapshot";
+export type SnapshotSource = "live" | "session-cache" | "bundled-snapshot" | "local";
+
+/** Branch and commit read from `.git` metadata files (git itself is never run). */
+export interface GitRevision {
+  branch: string | null;
+  commit: string | null;
+}
+
+/** Where a snapshot came from. GitHub snapshots link to github.com; local ones to an editor. */
+export type RepoOrigin =
+  | { kind: "github" }
+  | {
+      kind: "local";
+      /** Folder name shown in the UI. */
+      name: string;
+      /** Absolute path of the repository root on this machine (for editor links). */
+      root: string;
+      revision: GitRevision | null;
+    };
 
 export interface RepoSnapshot {
   meta: RepoMeta;
@@ -46,6 +64,10 @@ export interface RepoSnapshot {
   source: SnapshotSource;
   /** For bundled snapshots: when the data was captured from GitHub. */
   capturedAt?: string;
+  /** Defaults to GitHub. */
+  origin?: RepoOrigin;
+  /** Excluded folders that were not walked at all (local scans skip e.g. node_modules). */
+  skippedDirs?: { path: string; reason: string }[];
 }
 
 export interface RateLimitInfo {

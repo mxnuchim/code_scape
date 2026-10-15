@@ -3,25 +3,27 @@
 import { useMemo, useState, type ReactNode } from "react";
 import type { DependencyGraph } from "@/lib/analysis/imports/trace";
 import { TRACE_MAX_BYTES } from "@/lib/analysis/imports/trace";
-import { importLanguageFor } from "@/lib/analysis/imports/extract";
+import { isParseable } from "@/lib/analysis/code/parser";
 import type { DirNode, FileNode, RepoModel } from "@/lib/analysis/types";
-import { githubBlobUrl, githubTreeUrl } from "@/lib/github/client";
+import { sourceLink } from "@/lib/links";
 import type { LayoutResult } from "@/lib/layout/cityLayout";
 import { ARCHETYPE_INFO } from "@/lib/layout/archetypes";
 import type { BuildingLayout } from "@/lib/layout/types";
 import { formatBytes, formatNumber, plural } from "@/lib/format";
 import { useCity, type TraceState } from "@/state/store";
-import { CATEGORY_META, languageColor } from "@/theme/palette";
+import { CATEGORY_COLORS, CATEGORY_META, languageColor } from "@/theme/palette";
 import { relationsFor } from "../world/Connections";
 import { Badge, CompositionBar, Fact, Section, languageBar, languageName } from "./common";
 import { ArchetypeGlyph, IconCheck, IconCopy, IconExternal, IconFile, IconFolder, IconIsolate, IconTarget } from "./icons";
 import { Sheet } from "./Sheet";
+import { CodeInspector } from "./CodeInspector";
+import { BasisBadge } from "./Evidence";
 
 const LANDMARK_LABEL = {
-  readme: "Town hall · root README",
-  manifest: "Clock tower · package manifest",
-  entry: "Beacon · likely entry point",
-  license: "Monument · license",
+  readme: "Landmark · root README",
+  manifest: "Landmark · package manifest",
+  entry: "Landmark · entry point",
+  license: "Landmark · license",
 } as const;
 
 function Breadcrumbs({ path, isFile }: { path: string; isFile: boolean }) {
@@ -106,7 +108,7 @@ function RelationList({ items, layout, tone }: { items: { id: string; files: num
 }
 
 function untracedReason(file: FileNode, graph: DependencyGraph): string {
-  if (!importLanguageFor(file.path)) return "Imports are only traced for JavaScript, TypeScript and Python files.";
+  if (!isParseable(file.path)) return "Imports are traced for JavaScript, TypeScript, Python and Go files.";
   if (file.size > TRACE_MAX_BYTES) return `This file is larger than ${formatBytes(TRACE_MAX_BYTES)}, so it wasn't read.`;
   if (graph.failed.has(file.path)) return "We couldn't download this file to read its imports.";
   return `Only the first ${graph.cap} source files are read, and this one wasn't among them.`;
@@ -179,6 +181,28 @@ function Connections({ buildingId, files, trace, model, layout }: { buildingId: 
   );
 }
 
+/** Whether an entry point is backed by a manifest, a route or a main block, or only by its name. */
+function EntryEvidence({ file }: { file: FileNode }) {
+  const analysis = useCity((s) => s.analysis);
+  const entries = analysis?.overview.entryPoints.filter((e) => e.path === file.path && e.kind !== "naming-convention") ?? [];
+  if (entries.length === 0) {
+    return file.landmark === "entry" ? (
+      <p className="mt-2 flex items-center gap-2 text-[0.76rem] text-ink-soft">
+        <BasisBadge basis="heuristic" /> Named like an entry point; nothing confirms it.
+      </p>
+    ) : null;
+  }
+  return (
+    <ul className="mt-2 space-y-1">
+      {entries.slice(0, 3).map((e) => (
+        <li key={`${e.kind}:${e.label}`} className="flex items-center gap-2 text-[0.76rem] text-ink-soft">
+          <BasisBadge basis={e.basis} /> Entry point: {e.label}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function FileView({ building, file, model, layout, trace }: { building: BuildingLayout; file: FileNode; model: RepoModel; layout: LayoutResult; trace: TraceState }) {
   const info = ARCHETYPE_INFO[building.archetype];
   return (
@@ -202,10 +226,11 @@ function FileView({ building, file, model, layout, trace }: { building: Building
           </span>
           <span>
             <b className="font-semibold text-ink">{info.name}.</b> {info.meaning}
-            {file.landmark === "entry" && " We go by naming convention only; nothing was run or parsed to confirm it."}
           </span>
         </p>
+        <EntryEvidence file={file} />
       </Section>
+      <CodeInspector file={file} />
       <Connections buildingId={building.id} files={[file]} trace={trace} model={model} layout={layout} />
     </>
   );
@@ -279,9 +304,18 @@ function DistrictView({ dir, model, trace }: { dir: DirNode; model: RepoModel; t
   }, [trace, dir, model]);
 
   const categories = Object.fromEntries(Object.entries(dir.stats.categories)) as Record<string, number>;
+  const role = useCity((s) => s.analysis?.overview.modules.find((m) => m.path === dir.path)?.role);
   return (
     <>
       <Section title="About">
+        {role && (
+          <p className="mb-3 flex items-center gap-2 text-[0.8rem] text-ink-soft">
+            <BasisBadge basis={role.basis} />
+            <span>
+              <b className="font-semibold text-ink">{role.label}</b> — {role.reason}
+            </span>
+          </p>
+        )}
         <div className="mb-3 flex flex-wrap gap-1.5">
           <Badge>District</Badge>
           {dir.isPackage && <Badge tone="teal">Package</Badge>}
@@ -297,7 +331,7 @@ function DistrictView({ dir, model, trace }: { dir: DirNode; model: RepoModel; t
       <Section title="Building types">
         <CompositionBar
           data={categories}
-          colorFor={(c) => ({ source: "#5b8ee6", test: "#4fae9b", config: "#9aa2b4", build: "#c06f52", docs: "#e0c79a", style: "#a78be6", data: "#e0b062", asset: "#f0a9bd", other: "#c4bdb1" })[c] ?? "#ccc"}
+          colorFor={(c) => CATEGORY_COLORS[c as keyof typeof CATEGORY_COLORS] ?? "#ccc"}
           labelFor={(c) => CATEGORY_META[c as keyof typeof CATEGORY_META]?.label ?? c}
         />
       </Section>
@@ -316,6 +350,21 @@ function DistrictView({ dir, model, trace }: { dir: DirNode; model: RepoModel; t
         </Section>
       )}
     </>
+  );
+}
+
+function OpenSource({ path, dir, primary }: { path: string; dir: boolean; primary?: boolean }) {
+  const model = useCity((s) => s.model);
+  const symbolId = useCity((s) => s.symbol);
+  const symbol = useCity((s) => (symbolId ? s.analysis?.index.files[path]?.symbols.find((x) => x.id === symbolId) : undefined));
+  if (!model) return null;
+  const link = sourceLink(model, path, { dir, line: symbol?.range.startLine, endLine: symbol?.range.endLine });
+  if (!link) return null;
+  return (
+    <a className={`btn ${primary ? "btn-primary" : "btn-quiet"} px-3.5 py-2 text-[0.8rem]`} href={link.href} target={link.external ? "_blank" : undefined} rel="noopener noreferrer">
+      <IconExternal size={15} /> {link.label}
+      {symbol ? ` · ${symbol.range.startLine}` : ""}
+    </a>
   );
 }
 
@@ -362,16 +411,7 @@ export function InfoPanel() {
         );
         footer = (
           <div className="flex flex-wrap gap-2">
-            {b.id !== "#overflow" && (
-              <a
-                className="btn btn-primary px-3.5 py-2 text-[0.8rem]"
-                href={isBlock ? githubTreeUrl(model.meta, model.ref, b.id) : githubBlobUrl(model.meta, model.ref, b.id)}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <IconExternal size={15} /> Open on GitHub
-              </a>
-            )}
+            {b.id !== "#overflow" && <OpenSource path={b.id} dir={isBlock} primary />}
             {b.id !== "#overflow" && <CopyButton text={b.id} />}
             <button type="button" className="btn btn-quiet px-3 py-2 text-[0.8rem]" onClick={() => camera?.flyToBuilding(b.id)} title="Focus (F)">
               <IconTarget size={15} /> Focus
@@ -409,9 +449,7 @@ export function InfoPanel() {
                 <IconIsolate size={15} /> {isolated ? "Show everything" : "Isolate"}
               </button>
             )}
-            <a className="btn btn-quiet px-3.5 py-2 text-[0.8rem]" href={githubTreeUrl(model.meta, model.ref, dir.path)} target="_blank" rel="noopener noreferrer">
-              <IconExternal size={15} /> GitHub
-            </a>
+            <OpenSource path={dir.path} dir />
             <button type="button" className="btn btn-quiet px-3 py-2 text-[0.8rem]" onClick={() => camera?.flyToDistrict(dir.path)}>
               <IconTarget size={15} /> Focus
             </button>

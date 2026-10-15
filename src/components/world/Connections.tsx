@@ -1,8 +1,7 @@
 "use client";
 
 import { Html, QuadraticBezierLine } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import type { DependencyGraph } from "@/lib/analysis/imports/trace";
 import type { RepoModel } from "@/lib/analysis/types";
@@ -48,66 +47,74 @@ export function relationsFor(model: RepoModel, layout: LayoutResult, graph: Depe
   return { imports: collect(graph.outgoing), importedBy: collect(graph.incoming) };
 }
 
-function Arc({
+/**
+ * A static, directed arc between two points: a line with an arrowhead near the
+ * target. Deliberately motionless: it shows a relationship in the code, not
+ * traffic. `dashed` marks connections that are uncertain or leave the repository.
+ */
+export function Arc({
   from,
   to,
   color,
   width,
   lift,
-  speed,
   opacity = 1,
+  dashed = false,
 }: {
   from: THREE.Vector3;
   to: THREE.Vector3;
   color: string;
   width: number;
   lift: number;
-  speed: number;
   opacity?: number;
+  dashed?: boolean;
 }) {
-  const ref = useRef<{ material: { dashOffset: number } } | null>(null);
-  const mid = useMemo(() => {
+  const { mid, head, quaternion } = useMemo(() => {
     const m = from.clone().lerp(to, 0.5);
     m.y = Math.max(from.y, to.y) + lift;
-    return m;
+    const curve = new THREE.QuadraticBezierCurve3(from, m, to);
+    const t = 0.86;
+    const tangent = curve.getTangent(t).normalize();
+    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent);
+    return { mid: m, head: curve.getPoint(t), quaternion: q };
   }, [from, to, lift]);
-  useFrame((_, dt) => {
-    if (ref.current) ref.current.material.dashOffset -= dt * speed;
-  });
   return (
-    <QuadraticBezierLine
-      ref={ref as never}
-      start={from}
-      end={to}
-      mid={mid}
-      color={color}
-      lineWidth={width}
-      dashed
-      dashSize={0.55}
-      gapSize={0.3}
-      transparent
-      opacity={opacity}
-      raycast={noRaycast}
-      renderOrder={6}
-      toneMapped={false}
-    />
+    <group>
+      <QuadraticBezierLine
+        start={from}
+        end={to}
+        mid={mid}
+        color={color}
+        lineWidth={width}
+        dashed={dashed}
+        dashSize={0.45}
+        gapSize={0.3}
+        transparent
+        opacity={opacity}
+        raycast={noRaycast}
+        renderOrder={6}
+        toneMapped={false}
+      />
+      <mesh position={head} quaternion={quaternion} raycast={noRaycast} renderOrder={7}>
+        <coneGeometry args={[0.07 + width * 0.022, 0.32, 12]} />
+        <meshBasicMaterial color={color} toneMapped={false} transparent opacity={opacity} />
+      </mesh>
+    </group>
   );
 }
 
-const top = (b: BuildingLayout) => new THREE.Vector3(b.x, b.y + b.height + 0.15, b.z);
+export const buildingTop = (b: BuildingLayout) => new THREE.Vector3(b.x, b.y + b.height + 0.15, b.z);
 
 export function SelectionArcs({
   model,
   layout,
   graph,
   selectedId,
-  reducedMotion,
 }: {
   model: RepoModel;
   layout: LayoutResult;
   graph: DependencyGraph;
   selectedId: string;
-  reducedMotion: boolean;
 }) {
   const arcs = useMemo(() => {
     const index = layout.buildingIndex.get(selectedId);
@@ -120,8 +127,8 @@ export function SelectionArcs({
         const i = layout.buildingIndex.get(id);
         if (i === undefined) continue;
         const other = layout.buildings[i];
-        const a = top(self);
-        const b = top(other);
+        const a = buildingTop(self);
+        const b = buildingTop(other);
         const dist = Math.hypot(a.x - b.x, a.z - b.z);
         out.push({
           key: `${outgoing ? "o" : "i"}:${id}`,
@@ -140,7 +147,7 @@ export function SelectionArcs({
   return (
     <group>
       {arcs.map((a) => (
-        <Arc key={a.key} from={a.from} to={a.to} color={a.color} width={2.4} lift={a.lift} speed={reducedMotion ? 0 : 1.6} />
+        <Arc key={a.key} from={a.from} to={a.to} color={a.color} width={2.2} lift={a.lift} />
       ))}
     </group>
   );

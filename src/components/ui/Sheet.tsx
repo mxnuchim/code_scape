@@ -42,7 +42,7 @@ export function Sheet({ open, side, label, onClose, header, children, footer, co
       {open && (
         <motion.aside
           key={mobile ? "m" : "d"}
-          role="dialog"
+          role="region"
           aria-label={label}
           className={
             mobile

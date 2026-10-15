@@ -3,8 +3,16 @@
   "configurations": [
     {
       "name": "codescape",
-      "url": "http://localhost:3000",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev"],
       "port": 3000
+    },
+    {
+      "name": "codescape-local-fixture",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev", "--port", "3100"],
+      "port": 3100,
+      "env": { "CODESCAPE_ROOT": "test/fixtures/ts-express-api" }
     }
   ]
 }

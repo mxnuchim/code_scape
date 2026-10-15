@@ -1,79 +1,134 @@
 # CodeScape
 
-Paste a public GitHub repository and explore it as a miniature 3D city.
+**Understand any codebase. Find your way around.**
 
-CodeScape reads the repository's real file tree through the GitHub API and builds a city from it. Folders become districts and blocks, files become buildings, and imports traced from the source become transit lines. The same repository always produces the same city.
+When you join a project, inherit a legacy system or open an unfamiliar repository, the first days go into rebuilding its mental model by hand. You have to work out:
 
-## Reading the city
+- what this is;
+- where execution enters;
+- which modules matter;
+- how a request actually gets to the database;
+- where to start reading.
 
-| What you see | What it means |
-| --- | --- |
-| District | A top-level folder, labelled on the ground. Blocks inside it are subfolders. |
-| Building | A file. Height follows file size on a log scale. |
-| Language | A lit band on every building, judged from the file extension. The legend's lens can paint whole facades by language or role instead. |
-| Shape | The file's role, in the style's architecture: towers for source, atrium labs for tests, water towers for config, workshops for build and CI, townhouses for docs, glass pavilions for styles, depots for data, storerooms for assets. |
-| Landmarks | The root README is a town hall, package manifests are clock towers, likely entry points are beacon towers (judged by naming convention only), and the license is a monument. |
-| Streets | Separations between folders. They show structure, not dependencies. |
-| Transit arcs | Imports read from up to 300 JavaScript, TypeScript and Python files. An arc is drawn only when an import resolves to a real file in the repository. |
+CodeScape answers those questions from the code itself, and shows the answers on an explorable 3D map of the repository. It works three ways:
 
-Dependencies, build output, caches and lockfiles are left out, and the repository panel lists exactly what was skipped. Very large repositories have their densest folders drawn as single blocks, and a tree that GitHub truncates is flagged as partial.
+- **In the browser**, for any public GitHub repository.
+- **Locally**, for your checked-out repository, private code and uncommitted changes included. Nothing leaves your machine.
+- **Inside Claude Code**, through a local MCP server. Claude can then answer "how does this work?" with `path:line` evidence and send you a link to the exact spot in the map.
 
-## City styles and time of day
+![A code journey for POST /users: numbered stops across the city, the guide on the left, the inspector with source on the right](docs/images/journey.jpg)
 
-The same repository can be drawn in four architectural styles:
-- **Financial District:** setback towers, limestone and bronze
-- **Thames:** brick terraces, a few glass landmarks
-- **Waterfront:** glass towers and plazas
-- **Noir:** gothic stone and haze; a fictional city
+## What you get
 
-Time of day can be **Auto** (follows your local clock, with gradual transitions at dawn and dusk), **Day** or **Night**. Night brings lit windows, streetlights and a darker sky.
+- **An overview from evidence.** You see the project type, technologies, modules and their likely roles, entry points, routes, and run and test commands. Each item is labelled **fact** (read from files or manifests), **static analysis** (parsed and resolved from source) or **heuristic** (inferred from names). CodeScape never presents a guess as a fact.
+- **A reading order with reasons.** "Start with the README, then `package.json` (declares the commands), then `src/server.ts` (package main), then the 'POST /users' journey…"
+- **Code journeys.** CodeScape follows an operation from where it enters the code (an HTTP route, a page, `main`) through resolved calls to where it leaves the repository (`pool.query` in `pg`). It draws the journey as numbered stops across the city, and you step through it with `[` and `]`. Where static analysis can't follow, such as dynamic dispatch or an unresolved handler, the journey shows a gap instead of inventing a step.
+- **Source-backed inspection.** Click a building to see its declarations with line ranges, a redacted source excerpt, calls, callers, packages used, routes and related tests. "Open in VS Code" (or on GitHub) takes you to the exact line.
+- **Search** across files, folders and declarations, plus a keyboard-navigable file tree.
+- **Deep links.** `?select=src/db/client.ts&symbol=…&journey=…` reopens exactly what you were looking at.
+- **City styles and time of day.** Four architectural styles, plus Auto, Day and Night lighting. They change only the look; the data and positions stay the same.
 
-Your choices are remembered on this device. Styles and lighting are interpretations only: every style places the same files in the same spots, at heights in the same order, and nothing in the lighting stands for runtime activity.
+## Quick start
 
-## Controls
-
-- Drag to orbit, right-drag to pan, scroll to zoom towards the cursor
-- `W` `A` `S` `D` to fly, `Q` `E` to turn, `Shift` to go faster
-- `/` or `⌘K` to search, `F` to focus the selection, `H` for the whole city, `T` for transit, `Esc` to step back, `?` for help
-- On touch screens: drag to orbit, pinch to zoom, two fingers to pan, tap to select
-
-Deep links work: `/<owner>/<repo>` opens that repository's city directly, and `/<owner>/<repo>/tree/<ref>` opens a specific branch or tag.
-
-## Getting started
-
-Requires Node 22 (see `.nvmrc`) and pnpm.
+Requires Node 22 (see `.nvmrc`; 20.9 or later works) and pnpm 10.
 
 ```bash
 pnpm install
-pnpm dev
+pnpm build
+pnpm build:cli
 ```
 
-Then open http://localhost:3000.
+**Explore a public GitHub repository:** run `pnpm dev`, open http://localhost:3000 and paste a repository URL.
 
-Other scripts:
+**Explore a local or private repository:**
 
 ```bash
-pnpm test        # unit tests (Vitest)
-pnpm typecheck   # TypeScript
-pnpm lint        # ESLint
-pnpm build       # production build
+node dist/cli.mjs view --root /path/to/your/repo --open
 ```
+
+**Use it from Claude Code**, inside the repository you want to understand:
+
+```bash
+claude mcp add codescape -- node /absolute/path/to/codescape/dist/cli.mjs mcp
+```
+
+Then ask Claude, for example: *"I just joined this project. How does a POST /users request reach the database? Show me in CodeScape."* For the tools, prompts, configuration and troubleshooting, see **[docs/MCP.md](docs/MCP.md)**.
+
+Print the analysis without any UI:
+
+```bash
+node dist/cli.mjs analyze --root /path/to/repo
+```
+
+![The guide: project type with its basis, technologies with manifest evidence, and a reading order where every item says why](docs/images/guide.jpg)
+
+## Reading the city
+
+| What you see | What it means | How it's known |
+| --- | --- | --- |
+| District | A folder. Top-level folders are labelled on the ground. | Fact |
+| Building | A file. Very large folders may be drawn as a single block. | Fact |
+| Height | File size on a log scale. Compare heights between buildings of the same shape. | Fact |
+| Shape | The file's role: source, test, config, build, docs, style, data or asset. | Heuristic (name and extension) |
+| Landmarks | README, manifest, licence and entry points. An entry point is either confirmed (manifest, route, `main`) or named like one, and the inspector says which. | Fact / heuristic |
+| Amber and teal arcs | Imports out of and into the selected building, drawn only when an import resolves to a real file. | Static analysis |
+| Violet numbered route | A code journey. A dashed line rising out of a building is a call into a package. | Static analysis |
+| Windows, streetlights, trees | Decoration only. Nothing in the city implies runtime traffic. | — |
+
+Press `?` in the app for the full legend and shortcuts.
+
+## What runs where
+
+- **GitHub mode** runs entirely in your browser. It reads the file tree through GitHub's public API (about 2 requests per city), and fetches at most 300 source files from `raw.githubusercontent.com` to parse them.
+- **Local mode and MCP** read files from your disk, and only inside the folder you choose. Symlinks that point outside it, likely secret files (`.env*`, keys, credentials) and binaries are never read, and returned text is redacted. Repository code is never executed, and neither is `git`: branch and commit are read from `.git` files. The local viewer only answers requests to `127.0.0.1` / `localhost`.
+
+See [SECURITY.md](SECURITY.md) for the full model.
 
 ## How it works
 
-There is no backend. The browser calls `api.github.com` and `raw.githubusercontent.com` directly, so every visitor gets their own unauthenticated rate limit (60 API requests an hour). A city costs about two API requests. Import tracing reads raw files, which doesn't count against that limit. When the limit is reached, CodeScape offers a dated snapshot of `pallets/flask` that ships with the app (`public/samples/`, regenerated with `node scripts/snapshot-sample.mjs owner/repo`).
-
 ```
-src/
-  lib/github/     URL parsing, API client and error classification
-  lib/analysis/   file classification, exclusions, the repository model, import tracing
-  lib/layout/     deterministic city layout (squarified treemap), pure TypeScript
-  state/          zustand store and the loading pipeline
-  components/world/   React Three Fiber scene: architecture kits, environment, districts, camera, effects
-  theme/          city styles, time of day, palettes
-  components/ui/      landing, loading and error states, HUD, panels, search
+src/lib/analysis/   the shared engine
+                    (file tree → model → tree-sitter parse → imports, calls, journeys, overview, onboarding)
+src/lib/local/      Node only: safe filesystem access, .gitignore-aware walk, git revision, caching and freshness
+src/mcp/            the MCP server: seven read-only tools, one resource, two prompts
+src/cli/            the `codescape` command: mcp, view, analyze, and the viewer launcher
+src/app/api/        localhost-only API routes the viewer uses for local repositories
+src/components/     the React Three Fiber city and the interface
 ```
 
-Each layer only depends on the ones above it. Analysis knows nothing about rendering, and the layout produces plain numbers that the 3D world draws.
+The browser, the local viewer and the MCP server all call the same `analyzeRepository()`, so the map and Claude always agree. For more, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-Built with Next.js, React Three Fiber, drei, postprocessing, Tailwind CSS, Motion and zustand.
+## Development
+
+```bash
+pnpm dev          # web app on :3000 (copies the tree-sitter WASM files to public/wasm first)
+pnpm test         # Vitest: engine, local safety, MCP contract and stdio transport (builds the CLI first)
+pnpm test:e2e     # Playwright against the production build (run `pnpm build` first)
+pnpm typecheck
+pnpm lint
+pnpm build        # production web build
+pnpm build:cli    # dist/cli.mjs
+```
+
+To work on local mode, run the dev server with `CODESCAPE_ROOT=test/fixtures/ts-express-api pnpm dev` and open `/local`.
+
+Contributors and coding agents should read [CONTRIBUTING.md](CONTRIBUTING.md) and keep the three work logs current:
+
+- [EXECUTION.md](EXECUTION.md): what was done;
+- [LEARNINGS.md](LEARNINGS.md): problems already solved;
+- [INTERFACE.md](INTERFACE.md): design decisions to follow.
+
+## Limits
+
+- **Languages.** Parsing covers JavaScript, TypeScript, Python and Go. Other languages appear in the map without symbols or edges.
+- **Static analysis only.** Dependency injection, dynamic dispatch, reflection and string-based routing aren't followed, and journeys show those points as gaps.
+- **Caps.** Large repositories hit the parse caps (300 files in the browser; 4,000 files or 40 MB locally). The overview always lists what was left out.
+- **Runtime behaviour.** No runtime data is used yet: no traces, latency or errors.
+
+## License
+
+[MIT](LICENSE). Third-party components keep their own licences:
+
+- Geist and Geist Mono fonts (SIL Open Font License 1.1);
+- the tree-sitter grammars (MIT);
+- the MCP TypeScript SDK (Apache-2.0).

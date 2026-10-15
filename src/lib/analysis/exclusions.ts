@@ -89,9 +89,9 @@ export function excludedFileReason(name: string): string | undefined {
 
 /**
  * For a full path, find the outermost excluded directory and its reason.
- * `build/` and `out/` are only treated as output at the top of a project or
- * package. Projects sometimes keep real source in folders with those names
- * deeper down (e.g. `src/build/`).
+ * `build/`, `out/` and `target/` are only treated as output within the first
+ * three path segments (e.g. `build/`, `packages/app/build/`), because projects
+ * sometimes keep real source in folders with those names deeper down.
  */
 export function excludedPathMatch(
   path: string,

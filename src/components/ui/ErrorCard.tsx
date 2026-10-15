@@ -66,14 +66,35 @@ function copyFor(error: CityError, now: number): Copy {
   );
 
   switch (error.kind) {
+    case "local-unavailable":
+      return {
+        tone: "warn",
+        title: "The local repository couldn’t be loaded",
+        body: (
+          <>
+            {error.message ?? "The local CodeScape server didn’t return an analysis."} Local mode needs the viewer that{" "}
+            <code className="font-mono text-[0.85em]">codescape view --root &lt;folder&gt;</code> (or Claude Code&apos;s{" "}
+            <code className="font-mono text-[0.85em]">open_in_codescape</code>) starts on this machine.
+          </>
+        ),
+        actions: (
+          <>
+            <button type="button" className="btn btn-quiet px-4 py-2.5 text-sm" onClick={editAndBack}>
+              Open a GitHub repository
+            </button>
+            {retry()}
+          </>
+        ),
+      };
     case "not-found-or-private":
       return {
         tone: "warn",
-        title: "This plot is fenced off",
+        title: "Repository not found or private",
         body: (
           <>
             We couldn&apos;t open {name}. It may be private, renamed or deleted, or it may never have existed. GitHub answers all of
-            those the same way for visitors, so we can&apos;t tell which. CodeScape can only build public repositories.
+            those the same way for visitors, so we can&apos;t tell which. The web app reads public repositories; for private code, run CodeScape locally
+            (<code className="font-mono text-[0.85em]">codescape view</code>).
           </>
         ),
         actions: (
@@ -86,7 +107,7 @@ function copyFor(error: CityError, now: number): Copy {
     case "ref-not-found":
       return {
         tone: "warn",
-        title: "That branch isn’t on the map",
+        title: "Branch, tag or commit not found",
         body: (
           <>
             {name} exists, but GitHub couldn&apos;t find the branch, tag or commit <code className="font-mono text-[0.85em]">{error.repo.ref}</code>.
@@ -110,7 +131,7 @@ function copyFor(error: CityError, now: number): Copy {
     case "empty-repo":
       return {
         tone: "warn",
-        title: "An empty plot",
+        title: "This repository is empty",
         body: <>{name} has no commits yet, so there&apos;s nothing to build.</>,
         actions: (
           <>
@@ -122,7 +143,7 @@ function copyFor(error: CityError, now: number): Copy {
     case "nothing-to-build":
       return {
         tone: "warn",
-        title: "Nothing to build here",
+        title: "No project files to show",
         body: (
           <>
             Every file in {name} is a dependency, build output, lockfile or generated file. We skip those so the city shows
@@ -142,7 +163,7 @@ function copyFor(error: CityError, now: number): Copy {
       const time = new Date(resetAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
       return {
         tone: "wait",
-        title: "The planning office is closed for a bit",
+        title: "GitHub API rate limit reached",
         body: (
           <>
             GitHub allows visitors without an account {error.rateLimit?.limit ?? 60} requests an hour, and this connection has used
@@ -181,7 +202,7 @@ function copyFor(error: CityError, now: number): Copy {
     case "blocked":
       return {
         tone: "warn",
-        title: "GitHub won’t share this one",
+        title: "GitHub blocked access to this repository",
         body: (
           <>
             GitHub refused access to {name}
@@ -199,7 +220,7 @@ function copyFor(error: CityError, now: number): Copy {
     case "unavailable":
       return {
         tone: "wait",
-        title: "GitHub is having a moment",
+        title: "GitHub is unavailable",
         body: <>GitHub&apos;s servers returned an error while we were reading {name}. These are usually brief.</>,
         actions: (
           <>
@@ -211,7 +232,7 @@ function copyFor(error: CityError, now: number): Copy {
     case "network":
       return {
         tone: "wait",
-        title: "We lost the signal",
+        title: "Network error",
         body: <>We couldn&apos;t reach GitHub. Check your connection, then try again.</>,
         actions: (
           <>

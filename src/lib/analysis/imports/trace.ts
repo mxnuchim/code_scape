@@ -1,20 +1,11 @@
 import type { RepoModel } from "../types";
-import { extractJsImports, extractPythonImports, importLanguageFor } from "./extract";
-import {
-  aliasFromTsconfig,
-  dirname,
-  joinPath,
-  parseJsonc,
-  resolveJsImport,
-  resolvePythonImport,
-  type AliasConfig,
-  type ResolveContext,
-} from "./resolve";
+import { importLanguageFor } from "./extract";
+import { buildCodeIndex } from "../code/buildIndex";
+import { toDependencyGraph } from "../workspace";
+import { aliasFromTsconfig, dirname, joinPath, parseJsonc, type AliasConfig } from "./resolve";
 
 export const TRACE_FILE_CAP = 300;
 export const TRACE_MAX_BYTES = 300 * 1024;
-const CONCURRENCY = 8;
-const PER_FILE_TIMEOUT_MS = 10_000;
 
 export interface DependencyEdge {
   from: string;
@@ -52,7 +43,7 @@ export interface TraceOptions {
   cap?: number;
 }
 
-function withTimeout(parent: AbortSignal, ms: number): { signal: AbortSignal; dispose: () => void } {
+export function withTimeout(parent: AbortSignal, ms: number): { signal: AbortSignal; dispose: () => void } {
   const controller = new AbortController();
   const onAbort = () => controller.abort();
   parent.addEventListener("abort", onAbort, { once: true });
@@ -89,7 +80,7 @@ export function planTrace(model: RepoModel, cap = TRACE_FILE_CAP) {
   return { eligible: eligible.length, skippedLarge, queue: ordered.slice(0, cap).map((f) => f.path) };
 }
 
-async function loadAlias(model: RepoModel, fetchText: FetchText, signal: AbortSignal): Promise<AliasConfig | undefined> {
+export async function loadAlias(model: RepoModel, fetchText: FetchText, signal: AbortSignal): Promise<AliasConfig | undefined> {
   const candidates = ["tsconfig.json", "jsconfig.json"].filter((p) => model.filesByPath.has(p));
   for (const path of candidates) {
     try {
@@ -116,7 +107,7 @@ async function loadAlias(model: RepoModel, fetchText: FetchText, signal: AbortSi
   return undefined;
 }
 
-function pythonRoots(model: RepoModel): string[] {
+export function pythonRoots(model: RepoModel): string[] {
   const roots = new Set<string>(["", "src", "lib"]);
   for (const dir of model.dirsByPath.values()) {
     if (dir.isPackage) {
@@ -130,83 +121,15 @@ function pythonRoots(model: RepoModel): string[] {
 /**
  * Read a bounded set of source files and record imports that resolve to files
  * in the repository. Only resolved, in-repo edges are recorded. Nothing is guessed.
+ * A thin adapter over the code index, kept for the file-level graph shape.
  */
 export async function traceImports(model: RepoModel, options: TraceOptions): Promise<DependencyGraph> {
-  const { signal, fetchText, onProgress } = options;
-  const plan = planTrace(model, options.cap ?? TRACE_FILE_CAP);
-  const files = new Set(model.filesByPath.keys());
-  const needsAlias = plan.queue.some((p) => importLanguageFor(p) === "js");
-  const alias = needsAlias ? await loadAlias(model, fetchText, signal) : undefined;
-  const ctx: ResolveContext = { files, alias, pythonRoots: pythonRoots(model) };
-
-  const outgoing = new Map<string, Set<string>>();
-  const traced = new Set<string>();
-  const failed = new Set<string>();
-  let done = 0;
-  let cursor = 0;
-  onProgress?.({ done, total: plan.queue.length });
-
-  const worker = async () => {
-    while (cursor < plan.queue.length) {
-      if (signal.aborted) return;
-      const path = plan.queue[cursor++];
-      const { signal: fileSignal, dispose } = withTimeout(signal, PER_FILE_TIMEOUT_MS);
-      try {
-        const text = await fetchText(path, fileSignal);
-        if (text === null) {
-          failed.add(path);
-        } else {
-          const targets = new Set<string>();
-          if (importLanguageFor(path) === "js") {
-            for (const spec of extractJsImports(text)) {
-              const hit = resolveJsImport(path, spec, ctx);
-              if (hit && hit !== path) targets.add(hit);
-            }
-          } else {
-            for (const imp of extractPythonImports(text)) {
-              for (const hit of resolvePythonImport(path, imp, ctx)) targets.add(hit);
-            }
-          }
-          traced.add(path);
-          if (targets.size) outgoing.set(path, targets);
-        }
-      } catch {
-        if (signal.aborted) return;
-        failed.add(path);
-      } finally {
-        dispose();
-      }
-      done++;
-      onProgress?.({ done, total: plan.queue.length });
-    }
-  };
-
-  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, plan.queue.length) }, worker));
-  if (signal.aborted) throw new DOMException("Tracing cancelled", "AbortError");
-
-  const edges: DependencyEdge[] = [];
-  const out = new Map<string, string[]>();
-  const incoming = new Map<string, string[]>();
-  for (const from of [...outgoing.keys()].sort()) {
-    const targets = [...outgoing.get(from)!].sort();
-    out.set(from, targets);
-    for (const to of targets) {
-      edges.push({ from, to });
-      const list = incoming.get(to) ?? [];
-      list.push(from);
-      incoming.set(to, list);
-    }
-  }
-
-  return {
-    edges,
-    outgoing: out,
-    incoming,
-    traced,
-    failed,
-    eligible: plan.eligible,
-    skippedLarge: plan.skippedLarge,
+  const index = await buildCodeIndex(model, {
+    readText: options.fetchText,
+    signal: options.signal,
     cap: options.cap ?? TRACE_FILE_CAP,
-    aliasSource: alias?.source ?? null,
-  };
+    maxFileBytes: TRACE_MAX_BYTES,
+    onProgress: options.onProgress,
+  });
+  return toDependencyGraph(index);
 }

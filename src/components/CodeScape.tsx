@@ -1,10 +1,11 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { AnimatePresence } from "motion/react";
+import { AnimatePresence, MotionConfig } from "motion/react";
 import { useEffect, useState } from "react";
 import { parseRepoUrl } from "@/lib/github/parseRepoUrl";
-import { cancelAll, goToLanding, loadRepo } from "@/state/loader";
+import { cancelAll, goToLanding, loadLocalWorkspace, loadRepo } from "@/state/loader";
+import { useDeepLinks } from "@/state/deepLinks";
 import { useCity } from "@/state/store";
 import { Landing } from "./ui/Landing";
 import { LoadingStages } from "./ui/LoadingStages";
@@ -14,6 +15,8 @@ import { InfoPanel } from "./ui/InfoPanel";
 import { SearchPalette } from "./ui/SearchPalette";
 import { RepoPanel } from "./ui/RepoPanel";
 import { HelpPanel } from "./ui/HelpPanel";
+import { GuidePanel } from "./ui/GuidePanel";
+import { JourneyBar } from "./ui/JourneyBar";
 import { ControlsHint } from "./ui/ControlsHint";
 import { WorldFallback } from "./ui/WorldFallback";
 import { LiveRegion } from "./ui/LiveRegion";
@@ -29,12 +32,17 @@ export function CodeScape() {
   const phase = useCity((s) => s.phase);
   const assembled = useCity((s) => s.assembled);
   const [failure, setFailure] = useState<null | "crash" | "context-lost" | "unsupported">(null);
+  useDeepLinks();
 
   // Routing from the address bar (and back/forward), after restoring saved preferences.
   useEffect(() => {
     useCity.getState().hydratePreferences();
     const route = () => {
       const segments = window.location.pathname.split("/").filter(Boolean);
+      if (segments.length === 1 && segments[0] === "local") {
+        void loadLocalWorkspace("none");
+        return;
+      }
       if (segments.length >= 2) {
         const parsed = parseRepoUrl(segments.join("/"));
         if (parsed.ok) {
@@ -52,6 +60,19 @@ export function CodeScape() {
     };
   }, []);
 
+  // Open the guide once per city when its analysis arrives, on screens wide enough
+  // to show it beside the map, unless the URL asked for something specific.
+  useEffect(() => {
+    let openedFor = -1;
+    return useCity.subscribe((state) => {
+      if (!state.analysis || !state.assembled || state.phase !== "city" || openedFor === state.cityKey) return;
+      openedFor = state.cityKey;
+      if (state.panel || state.selected || state.journey) return;
+      if (window.innerWidth < 1024 || /[?&](select|journey)=/.test(window.location.search)) return;
+      useCity.setState({ panel: "guide" });
+    });
+  }, []);
+
   // Global shortcuts.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -65,6 +86,7 @@ export function CodeScape() {
       }
       if (e.key === "Escape") {
         if (s.searchOpen) s.set({ searchOpen: false });
+        else if (s.journey) s.playJourney(null);
         else if (s.panel) s.set({ panel: null });
         else if (s.filtersOpen) s.set({ filtersOpen: false });
         else if (s.selected) s.select(null);
@@ -83,7 +105,14 @@ export function CodeScape() {
       } else if (e.key.toLowerCase() === "h" || e.key === "0") {
         s.camera?.overview();
       } else if (e.key.toLowerCase() === "t" && s.trace.status === "done") {
-        s.set({ transit: !s.transit });
+        // Same as the button: district flows show when nothing is selected.
+        s.set({ transit: !s.transit, selected: null, journey: null });
+      } else if (e.key.toLowerCase() === "g") {
+        s.togglePanel("guide");
+      } else if (e.key === "]" && s.journey) {
+        s.stepJourney(1);
+      } else if (e.key === "[" && s.journey) {
+        s.stepJourney(-1);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -91,7 +120,9 @@ export function CodeScape() {
   }, []);
 
   return (
-    <main className="fixed inset-0 overflow-hidden select-none">
+    // Interface animations follow the OS "reduce motion" setting, like the 3D scene does.
+    <MotionConfig reducedMotion="user">
+    <main className="fixed inset-0 overflow-hidden">
       <div className="absolute inset-0">
         {!failure && <World onFailure={setFailure} />}
       </div>
@@ -104,6 +135,8 @@ export function CodeScape() {
         <AnimatePresence>{phase === "city" && <Hud key="hud" />}</AnimatePresence>
         {phase === "city" && <InfoPanel />}
         {phase === "city" && <RepoPanel />}
+        {phase === "city" && <GuidePanel />}
+        {phase === "city" && <JourneyBar />}
         <SearchPalette />
         <HelpPanel />
         {phase === "city" && assembled && <ControlsHint />}
@@ -111,5 +144,6 @@ export function CodeScape() {
       </div>
       <LiveRegion />
     </main>
+    </MotionConfig>
   );
 }

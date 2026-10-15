@@ -3,11 +3,14 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { buildingIdForFile } from "@/lib/layout/cityLayout";
-import { search, type SearchHit, type SearchItem } from "@/lib/search";
+import { search, type SearchItem } from "@/lib/search";
+import { searchSymbols } from "@/lib/analysis/code/queries";
+import type { CodeSymbol } from "@/lib/analysis/code/types";
 import { formatNumber } from "@/lib/format";
 import { useCity } from "@/state/store";
 import { languageColor } from "@/theme/palette";
 import { IconFolder, IconSearch } from "./icons";
+import { useFocusTrap } from "./useFocusTrap";
 
 export function SearchPalette() {
   const open = useCity((s) => s.searchOpen);
@@ -23,6 +26,8 @@ function Palette() {
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, true);
 
   const items = useMemo<SearchItem[]>(() => {
     const out: SearchItem[] = [];
@@ -31,7 +36,19 @@ function Palette() {
     return out;
   }, [model]);
 
-  const hits = useMemo(() => search(items, query), [items, query]);
+  const analysis = useCity((s) => s.analysis);
+  const [scope, setScope] = useState<"all" | "files" | "symbols">("all");
+
+  type Hit =
+    | { type: "path"; kind: "file" | "dir"; path: string; name: string; score: number }
+    | { type: "symbol"; symbol: CodeSymbol; score: number };
+
+  const hits = useMemo<Hit[]>(() => {
+    const paths: Hit[] = scope === "symbols" ? [] : search(items, query, 40).map((h) => ({ type: "path", ...h }));
+    const symbols: Hit[] =
+      scope === "files" || !analysis || !query.trim() ? [] : searchSymbols(analysis.index, query, 30).map((h) => ({ type: "symbol", symbol: h.symbol, score: h.score }));
+    return [...paths, ...symbols].sort((a, b) => b.score - a.score).slice(0, 50);
+  }, [items, query, scope, analysis]);
 
   useEffect(() => {
     const t = window.setTimeout(() => inputRef.current?.focus(), 30);
@@ -44,10 +61,16 @@ function Palette() {
 
   const close = () => useCity.setState({ searchOpen: false });
 
-  const choose = (hit: SearchHit) => {
+  const choose = (hit: Hit) => {
     if (!layout) return;
     const { select } = useCity.getState();
     close();
+    if (hit.type === "symbol") {
+      const file = model.filesByPath.get(hit.symbol.path);
+      const id = file ? buildingIdForFile(layout, file) : undefined;
+      if (id) select({ kind: "building", id }, { symbol: hit.symbol.id });
+      return;
+    }
     if (hit.kind === "file") {
       const file = model.filesByPath.get(hit.path);
       const id = file ? buildingIdForFile(layout, file) : undefined;
@@ -93,7 +116,9 @@ function Palette() {
           }}
         >
           <motion.div
+            ref={dialogRef}
             role="dialog"
+            aria-modal="true"
             aria-label="Search the city"
             className="glass-strong w-full max-w-[580px] overflow-hidden rounded-xl"
             initial={{ y: -14, scale: 0.98, opacity: 0 }}
@@ -111,21 +136,57 @@ function Palette() {
                   setActive(0);
                 }}
                 onKeyDown={onKeyDown}
-                placeholder={`Search ${formatNumber(model.stats.files)} files and folders`}
+                placeholder={analysis ? `Search ${formatNumber(model.stats.files)} files, folders and declarations` : `Search ${formatNumber(model.stats.files)} files and folders`}
                 className="min-w-0 flex-1 bg-transparent text-[1rem] outline-none placeholder:text-ink-faint"
                 role="combobox"
                 aria-expanded={hits.length > 0}
-                aria-controls="search-results"
+                aria-controls={query.trim() ? "search-results" : undefined}
                 aria-activedescendant={hits[active] ? `hit-${active}` : undefined}
                 autoComplete="off"
                 spellCheck={false}
               />
               <span className="kbd">esc</span>
             </div>
+            <div className="flex gap-1 border-b border-white/[0.07] px-3 py-1.5" role="radiogroup" aria-label="Search scope">
+              {(["all", "files", "symbols"] as const).map((sc) => (
+                <button
+                  key={sc}
+                  type="button"
+                  role="radio"
+                  aria-checked={scope === sc}
+                  disabled={sc === "symbols" && !analysis}
+                  className={`rounded px-2 py-0.5 text-[0.72rem] font-semibold ${scope === sc ? "bg-white/10 text-ink" : "text-ink-faint hover:text-ink"} disabled:opacity-40`}
+                  onClick={() => {
+                    setScope(sc);
+                    setActive(0);
+                    inputRef.current?.focus();
+                  }}
+                >
+                  {sc === "all" ? "All" : sc === "files" ? "Files & folders" : "Declarations"}
+                </button>
+              ))}
+            </div>
             {query.trim() && (
               <ul ref={listRef} id="search-results" role="listbox" className="scroll-soft max-h-[52vh] overflow-y-auto p-1.5">
                 {hits.length === 0 && <li className="px-3 py-6 text-center text-[0.86rem] text-ink-faint">Nothing in this city matches “{query}”.</li>}
                 {hits.map((hit, i) => {
+                  if (hit.type === "symbol") {
+                    const sym = hit.symbol;
+                    return (
+                      <li key={`s:${sym.id}`} id={`hit-${i}`} role="option" aria-selected={i === active} data-index={i}>
+                        <button type="button" className="row-btn" data-active={i === active} onMouseMove={() => setActive(i)} onClick={() => choose(hit)}>
+                          <span className="w-4 shrink-0 text-center font-mono text-[0.7rem] font-semibold text-[#9d8cff]">{sym.kind === "class" ? "C" : sym.kind === "method" ? "m" : sym.kind === "handler" ? "↳" : sym.kind === "function" ? "ƒ" : "·"}</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate font-mono text-[0.84rem] font-semibold">{sym.qualifiedName}</span>
+                            <span className="block truncate font-mono text-[0.7rem] text-ink-faint">
+                              {sym.path}:{sym.range.startLine}
+                            </span>
+                          </span>
+                          <span className="shrink-0 text-[0.7rem] text-ink-faint">{sym.kind}</span>
+                        </button>
+                      </li>
+                    );
+                  }
                   const file = hit.kind === "file" ? model.filesByPath.get(hit.path) : undefined;
                   const dir = hit.kind === "dir" ? model.dirsByPath.get(hit.path) : undefined;
                   const parent = hit.path.includes("/") ? hit.path.slice(0, hit.path.lastIndexOf("/")) : "";

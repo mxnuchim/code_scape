@@ -1,0 +1,37 @@
+name: Bug report
+description: Something in CodeScape is wrong or broken
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what you saw instead.
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where?
+      options:
+        - Web app (GitHub repository)
+        - Web app (local repository / codescape view)
+        - MCP server in Claude Code
+        - CLI (codescape analyze)
+    validations:
+      required: true
+  - type: input
+    id: repo
+    attributes:
+      label: Repository (if public) or its shape
+      description: e.g. github.com/owner/repo, or "TypeScript monorepo with pnpm workspaces"
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: OS, browser, Node version, Claude Code version (for MCP issues)
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: For MCP issues, include the server's stderr (claude --debug). Remove anything private.
