@@ -8,7 +8,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 export const metadata: Metadata = {
   title: "CodeScape · Understand any codebase",
   description:
-    "Explore a repository as a 3D architecture map: modules, entry points, dependencies and code journeys, each backed by file and line evidence. Works on GitHub repositories, local checkouts, and inside Claude Code via MCP.",
+    "Explore a repository as a 3D architecture map: modules, entry points, dependencies and code journeys, each backed by file and line evidence. Works on public GitHub repositories and local checkouts.",
 };
 
 export const viewport: Viewport = {

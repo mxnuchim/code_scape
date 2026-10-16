@@ -1,6 +1,6 @@
 # Architecture
 
-CodeScape has one analysis engine and three surfaces: the browser (GitHub mode), the local viewer and the MCP server. All three call the same function, so the map and Claude always describe the code the same way.
+CodeScape has one analysis engine and three surfaces: the browser (GitHub mode), the local viewer and the `codescape analyze` command. All three call the same function, so they always describe the code the same way.
 
 ```
                      ┌──────────────── src/lib/analysis (pure, isomorphic) ─────────────────┐
@@ -10,15 +10,15 @@ CodeScape has one analysis engine and three surfaces: the browser (GitHub mode),
                      └──────────────────────────────────────────────────────────────────────┘
         ▲                               ▲                                 ▲
   GitHub API + raw files         src/lib/local                      src/lib/local
-  (browser, loader.ts)           (Next API routes, /local)          (MCP server, CLI)
+  (browser, loader.ts)           (Next API routes, /local)          (CLI: analyze)
         │                               │                                 │
         ▼                               ▼                                 ▼
-  3D city + panels            3D city + panels (localhost)       7 tools · 1 resource · 2 prompts
+  3D city + panels            3D city + panels (localhost)       text or JSON summary
 ```
 
 ## Layers
 
-Dependencies point downward only: the UI depends on the engine, and the engine knows nothing about rendering, HTTP or MCP.
+Dependencies point downward only: the UI depends on the engine, and the engine knows nothing about rendering or HTTP.
 
 | Folder | Responsibility | Runs in |
 |---|---|---|
@@ -26,9 +26,7 @@ Dependencies point downward only: the UI depends on the engine, and the engine k
 | `src/lib/analysis/code/` | Parsing (`parser.ts`, `extract-*.ts`), the index and the resolver (`buildIndex.ts`), `overview.ts`, `journeys.ts`, `onboarding.ts` and `queries.ts` | Node and browser |
 | `src/lib/analysis/workspace.ts` | `analyzeRepository()` / `analyzeModel()`: the single entry point, plus the `WorkspaceAnalysis` contract | Node and browser |
 | `src/lib/layout/` | Deterministic city layout (squarified treemap). Plain numbers, no Three.js. | Node and browser |
-| `src/lib/remote/` | `GitHubWorkspace`: a public GitHub repository analysed on the server for the hosted MCP endpoint, with an in-memory cache | Node only |
 | `src/lib/local/` | Safe filesystem access (`safety.ts`), the .gitignore-aware walk (`walk.ts`), the git revision read from files (`revision.ts`), `LocalWorkspace` (caching and freshness), WASM location | Node only |
-| `src/mcp/` | MCP server, tools, target resolution and result bounding | Node only |
 | `src/cli/` | The `codescape` command and the viewer launcher | Node only |
 | `src/app/api/workspace/` | Localhost-only API for the viewer: analysis, excerpts, status | Next.js server |
 | `src/state/` | zustand store, loaders (GitHub, bundled snapshot, local), deep links | Browser |
@@ -79,18 +77,14 @@ If the runtime or a grammar fails to load, `fallback.ts` extracts imports with l
 - **Freshness.** On each `get()`, at most every 2 seconds, the tree is re-walked (stat calls only) and fingerprinted. If anything changed, the analysis is rebuilt, reusing cached parses for unchanged files (keyed by size and mtime).
 - **Excerpts and content search.** Both read from the texts already loaded, and their output is redacted.
 
-## The MCP server
+## The CLI
 
-`src/mcp/server.ts` registers (in `registerCodescape`) seven read-only tools (`registerTool` with zod v4 input and output schemas), the `codescape://overview` resource, and the `onboard` and `investigate` prompts. Each tool is thin: it resolves its target (`targets.ts`), calls the engine's queries, and returns `structuredContent` together with a compact text rendering. Results are capped at 24,000 characters, and expected failures become `isError` results the model can act on.
+`src/cli/index.ts` is the `codescape` command, bundled into `dist/cli.mjs` by `scripts/build-cli.mjs`:
 
-The tools depend only on `CodeWorkspace` (`context.ts`): analysis, redacted excerpts and content search. Two implementations serve them:
+- `codescape view [--root DIR] [--port N] [--open]` starts the local viewer through `src/cli/viewer.ts`: the production Next.js app run as `next start -H 127.0.0.1` with `CODESCAPE_ROOT` set, on port 4317 or the next free one. The launcher probes `/api/workspace/status` to reuse a viewer that already serves the same root.
+- `codescape analyze [--root DIR] [--json]` prints the overview, reading order and limits without any UI.
 
-- **Local, over stdio:** `LocalWorkspace` (`src/lib/local/workspace.ts`), started by `codescape mcp`.
-- **Hosted, over Streamable HTTP:** `GitHubWorkspace` (`src/lib/remote/githubWorkspace.ts`), served by `src/app/api/mcp/[owner]/[repo]/route.ts` through `createRemoteMcpHandler` (`src/mcp/remote.ts`, built on the SDK's stateless `createMcpHandler`). Each request builds a fresh `McpServer`; the expensive part, the analysis, is cached per `owner/repo@ref` for 15 minutes per server instance (up to 24 repositories). It reads the tree through the REST API (with `GITHUB_TOKEN` when set) and up to 600 files from `raw.githubusercontent.com`. The grammar WASM files ship with that function through `outputFileTracingIncludes` in `next.config.ts`. Hosted `open_in_codescape` only builds a link to the website's city.
-
-For the local server, the analysed root is chosen in this order: `--root`, then `CODESCAPE_ROOT`, then `CLAUDE_PROJECT_DIR`, then the working directory. Stdout carries only JSON-RPC; `console.log` is redirected to stderr.
-
-`open_in_codescape` uses `src/cli/viewer.ts` to find or start the viewer, which is the production Next.js app run as `next start -H 127.0.0.1` with `CODESCAPE_ROOT` set. The launcher probes `/api/workspace/status` to reuse a viewer that already serves the same root. The viewer is a child process, so it stops with the MCP server.
+The analysed root is `--root`, then `CODESCAPE_ROOT`, then the working directory.
 
 ## The web app
 
@@ -111,7 +105,7 @@ For the local server, the analysed root is chosen in this order: `--root`, then 
 |---|---|
 | `src/lib/analysis/**/*.test.ts` | Classification, model, layout determinism; extraction with exact lines for TS, Python, Go, Rust and Java; resolution through aliases and re-exports; journeys; overview; onboarding; queries |
 | `src/lib/local/local.test.ts` | Traversal, symlink escapes, sensitive files, redaction, `.gitignore`, entry and parse caps, freshness and parse-cache reuse, git revision from files (loose refs, packed refs, detached HEAD, worktrees). Hostile repositories are generated in a temp dir. |
-| `src/mcp/mcp.test.ts` | Tool list and schemas, every tool's output contract, traversal and validation errors, result size ceiling, CLI root resolution, and raw JSON-RPC over stdio against the built `dist/cli.mjs` |
+| `src/cli/cli.test.ts` | CLI root resolution, option validation and viewer deep links |
 | `e2e/*.spec.ts` (Playwright) | Guide, journeys and stepping, cold deep links, symbol search to source, the keyboard file tree, error recovery, API guards, reduced motion. Runs against the production build serving a fixture. |
 
 The fixtures live in `test/fixtures/`. They are small hand-written repositories (Express, Flask, Next.js, Go, a Rust axum workspace and a Spring Boot app) whose exact line numbers the tests assert.

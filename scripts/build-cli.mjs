@@ -1,4 +1,4 @@
-// Bundle the `codescape` CLI (MCP server + viewer launcher) into dist/cli.mjs
+// Bundle the `codescape` CLI (local viewer launcher and analysis printer) into dist/cli.mjs
 // and copy the tree-sitter WASM files next to it.
 import { build } from "esbuild";
 import { mkdirSync, rmSync } from "node:fs";

@@ -152,8 +152,8 @@ export function Landing() {
                 </p>
               ) : (
                 <p id="repo-url-hint" className="text-[12px] text-ink-faint">
-                  Public repositories. For private or local code, run <code className="font-mono text-ink-soft">codescape view --root .</code> or use
-                  CodeScape from Claude Code.
+                  Public repositories. For private or local code, run <code className="font-mono text-ink-soft">codescape view --root .</code> from a
+                  clone of CodeScape.
                 </p>
               )}
             </div>

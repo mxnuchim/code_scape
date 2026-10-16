@@ -216,7 +216,6 @@ export function GuidePanel() {
               <li key={q}>{q}</li>
             ))}
           </ul>
-          <p className="mt-2 text-[0.7rem] text-ink-faint">Ask these in Claude Code with the CodeScape MCP server for evidence-backed answers.</p>
         </Section>
       )}
 

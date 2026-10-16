@@ -2,7 +2,7 @@
  * Server-side access to the local repository for the Next.js API routes.
  *
  * The repository is fixed by the CODESCAPE_ROOT environment variable when the
- * viewer starts (`codescape view`, or open_in_codescape from the MCP server).
+ * viewer starts (`codescape view`).
  * Requests can never choose a different root.
  */
 import { LocalWorkspace } from "./workspace";
@@ -53,4 +53,4 @@ export function rejectNonLocal(request: Request): Response | null {
 }
 
 export const NO_ROOT_MESSAGE =
-  "No local repository is configured. Start the viewer with `codescape view --root <folder>` (or open_in_codescape from Claude Code).";
+  "No local repository is configured. Start the viewer with `codescape view --root <folder>`.";

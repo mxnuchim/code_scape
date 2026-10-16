@@ -1,6 +1,6 @@
 /**
  * The one entry point for analysing a repository, used by every surface:
- * the browser (GitHub mode), the local Next.js API and the MCP server.
+ * the browser (GitHub mode), the local Next.js API and the CLI.
  *
  *   snapshot (file tree) ─▶ RepoModel ─▶ CodeIndex ─▶ overview, journeys, onboarding
  *

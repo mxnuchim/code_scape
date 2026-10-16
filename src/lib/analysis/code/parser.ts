@@ -1,5 +1,5 @@
 /**
- * Tree-sitter parsing, isomorphic: the same code runs in Node (MCP server,
+ * Tree-sitter parsing, isomorphic: the same code runs in Node (the CLI,
  * Next.js route handlers, tests) and in the browser (GitHub mode). Only the
  * way WASM files are located differs, so callers supply a `WasmLocator`.
  *
@@ -148,6 +148,6 @@ export function parseSource(path: string, text: string): ParsedFile {
 }
 
 function logParserIssue(message: string, err: unknown) {
-  // stderr only: stdout belongs to the MCP transport when we run under it.
+  // stderr only: `codescape analyze --json` writes its result to stdout.
   if (typeof console !== "undefined") console.error(`[codescape] ${message}:`, err instanceof Error ? err.message : err);
 }

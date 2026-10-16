@@ -2,7 +2,7 @@
   "name": "codescape",
   "version": "0.2.0",
   "private": true,
-  "description": "Understand any codebase: an explorable 3D architecture map with source-backed onboarding, code journeys and a local MCP server for Claude Code.",
+  "description": "Understand any codebase: an explorable 3D architecture map with source-backed onboarding and code journeys.",
   "license": "MIT",
   "bin": {
     "codescape": "dist/cli.mjs"
@@ -25,7 +25,6 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@modelcontextprotocol/server": "^2.3.1",
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.1",
     "@react-three/postprocessing": "^3.2.0",
@@ -44,11 +43,9 @@
     "tree-sitter-rust": "0.24.0",
     "tree-sitter-typescript": "0.23.2",
     "web-tree-sitter": "0.27.1",
-    "zod": "^4.6.7",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
-    "@modelcontextprotocol/client": "^2.3.1",
     "@playwright/test": "^1.64.1",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^22.20.5",

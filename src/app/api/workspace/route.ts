@@ -2,7 +2,7 @@ import { NO_ROOT_MESSAGE, rejectNonLocal, serverWorkspace } from "@/lib/local/se
 
 export const dynamic = "force-dynamic";
 
-/** The full analysis of the configured repository (same data the MCP server uses). */
+/** The full analysis of the configured repository (the same analysis GitHub mode runs in the browser). */
 export async function GET(request: Request) {
   const rejected = rejectNonLocal(request);
   if (rejected) return rejected;

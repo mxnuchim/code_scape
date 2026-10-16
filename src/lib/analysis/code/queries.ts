@@ -1,6 +1,6 @@
 /**
- * Read-only queries over a model + code index, shared by the web UI and the
- * MCP server so both answer the same question the same way.
+ * Read-only queries over a model + code index, shared by every part of the
+ * web UI so they all answer the same question the same way.
  */
 import type { RepoModel } from "../types";
 import type { Basis, CodeEdge, CodeIndex, CodeSymbol } from "./types";

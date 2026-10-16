@@ -247,8 +247,8 @@ export async function loadBundledSnapshot(history: HistoryMode = "push") {
 
 /**
  * The repository on this machine that the local viewer was started for
- * (`codescape view` or open_in_codescape). The server analyses it with the
- * same engine the MCP server uses.
+ * (`codescape view`). The server analyses it with the same engine GitHub
+ * mode runs in the browser.
  */
 export async function loadLocalWorkspace(history: HistoryMode = "push") {
   const repo = { owner: "local", repo: "workspace" };

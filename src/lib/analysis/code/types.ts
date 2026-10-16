@@ -2,7 +2,7 @@
  * Code intelligence types: what we know about the *contents* of files, as
  * opposed to the tree-level model in ../types.ts.
  *
- * Every relationship carries a `basis` so consumers (the UI and the MCP server)
+ * Every relationship carries a `basis` so consumers (the UI and the CLI)
  * can say how it is known. Runtime behaviour is never represented here: all of
  * this is read from source text without executing it.
  */

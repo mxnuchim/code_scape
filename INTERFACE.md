@@ -133,3 +133,6 @@ Interaction colours (`WORLD` in `src/theme/palette.ts`): hover is white, selecti
 - Pans slide across the ground (`SCREEN_PAN`) rather than in the screen plane, so the pivot never lifts off the map.
 - `F` is now tilt and "focus the selection" moved to `C`; the inspector's Focus button title says so.
 - Global shortcuts other than `Esc` and `?` wait while focus is inside a dialog.
+
+### 2026-10-16 01:04 WAT — Claude Code integration removed
+- The repository panel no longer has the "Ask Claude about it" section (the 2026-10-15 18:31 entry above is superseded), and the guide's "Questions to explore" no longer points to Claude Code. The landing hint for private code now says to run `codescape view --root .` from a clone. Don't mention Claude Code or MCP in the product UI.

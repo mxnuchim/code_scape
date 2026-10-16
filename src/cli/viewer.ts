@@ -2,9 +2,8 @@
  * Starts (or finds) the local CodeScape viewer for a repository: the built
  * Next.js app, served on 127.0.0.1 with CODESCAPE_ROOT pointing at the repo.
  *
- * The viewer is a child of the current process, so an MCP-launched viewer
- * stops when Claude Code stops the MCP server. Its output goes to stderr,
- * never stdout (stdout is the MCP transport).
+ * The viewer is a child of the current process, so it stops when
+ * `codescape view` stops. Its output goes to stderr.
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";

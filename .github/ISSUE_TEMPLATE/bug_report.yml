@@ -16,7 +16,6 @@ body:
       options:
         - Web app (GitHub repository)
         - Web app (local repository / codescape view)
-        - MCP server in Claude Code
         - CLI (codescape analyze)
     validations:
       required: true
@@ -29,9 +28,9 @@ body:
     id: env
     attributes:
       label: Environment
-      description: OS, browser, Node version, Claude Code version (for MCP issues)
+      description: OS, browser and Node version
   - type: textarea
     id: logs
     attributes:
       label: Logs or screenshots
-      description: For MCP issues, include the server's stderr (claude --debug). Remove anything private.
+      description: For CLI or local-viewer issues, include the terminal output. Remove anything private.

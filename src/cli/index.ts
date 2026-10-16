@@ -1,18 +1,16 @@
 /**
  * `codescape` command line.
  *
- *   codescape mcp     [--root DIR]                     stdio MCP server (for Claude Code)
  *   codescape view    [--root DIR] [--port N] [--open] local web viewer for a repository
  *   codescape analyze [--root DIR] [--json]            print the analysis summary
  *
- * The repository root defaults to $CODESCAPE_ROOT, then $CLAUDE_PROJECT_DIR
- * (set by Claude Code for MCP servers), then the current directory.
+ * The repository root defaults to $CODESCAPE_ROOT, then the current directory.
  */
 import { resolve } from "node:path";
-import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
-import { createCodescapeServer, SERVER_VERSION } from "../mcp/server";
 import { LocalWorkspace } from "../lib/local/workspace";
 import { createViewerLauncher, buildDeepLink } from "./viewer";
+
+export const VERSION = "0.2.0";
 
 interface Args {
   command: string;
@@ -22,17 +20,13 @@ interface Args {
   json: boolean;
 }
 
-const HELP = `CodeScape ${SERVER_VERSION} — understand any codebase, find your way around.
+const HELP = `CodeScape ${VERSION} — understand any codebase, find your way around.
 
 Usage:
-  codescape mcp     [--root DIR]                      Run the MCP server over stdio (for Claude Code)
   codescape view    [--root DIR] [--port N] [--open]  Open the 3D viewer for a local repository
   codescape analyze [--root DIR] [--json]             Print what CodeScape found
 
-The repository defaults to $CODESCAPE_ROOT, then $CLAUDE_PROJECT_DIR, then the current folder.
-
-Add to Claude Code (run inside the repository you want to explore):
-  claude mcp add codescape -- node ${process.argv[1] ?? "/path/to/codescape/dist/cli.mjs"} mcp
+The repository defaults to $CODESCAPE_ROOT, then the current folder.
 `;
 
 export function parseArgs(argv: string[], env: Record<string, string | undefined> = process.env): Args {
@@ -47,26 +41,9 @@ export function parseArgs(argv: string[], env: Record<string, string | undefined
     else if (a === "--json") args.json = true;
     else throw new Error(`Unknown option: ${a}`);
   }
-  args.root = resolve(root ?? env.CODESCAPE_ROOT ?? env.CLAUDE_PROJECT_DIR ?? process.cwd());
+  args.root = resolve(root ?? env.CODESCAPE_ROOT ?? process.cwd());
   if (args.port !== undefined && !(args.port > 0 && args.port < 65536)) throw new Error("--port must be a port number");
   return args;
-}
-
-async function runMcp(args: Args) {
-  // Stdout carries the protocol: every diagnostic goes to stderr.
-  console.log = (...parts: unknown[]) => console.error(...parts);
-  const { server, context } = await createCodescapeServer({ root: args.root });
-  await server.connect(new StdioServerTransport());
-  console.error(`[codescape] MCP server ready for ${context.workspace.root}`);
-  // Warm the analysis so the first tool call is fast; errors surface on that call.
-  context.workspace.get().catch(() => {});
-  const shutdown = () => {
-    context.viewer.stop();
-    process.exit(0);
-  };
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
-  process.stdin.on("close", shutdown);
 }
 
 async function runView(args: Args) {
@@ -130,15 +107,13 @@ export async function main(argv = process.argv.slice(2)) {
     process.exit(2);
   }
   switch (args.command) {
-    case "mcp":
-      return runMcp(args);
     case "view":
       return runView(args);
     case "analyze":
       return runAnalyze(args);
     case "--version":
     case "version":
-      console.log(SERVER_VERSION);
+      console.log(VERSION);
       return;
     case "help":
     case "--help":

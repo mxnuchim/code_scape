@@ -5,7 +5,6 @@ import { formatBytes, formatCompact, formatDate, formatNumber, plural, timeAgo }
 import { PARSED_LANGUAGES_AND, PARSED_LANGUAGES_OR } from "@/lib/analysis/languages";
 import { useCity } from "@/state/store";
 import { Badge, Fact, Section, languageBar } from "./common";
-import { ClaudeConnect } from "./ClaudeConnect";
 import { IconAlert, IconExternal, IconGitHub } from "./icons";
 import { RepoAvatar } from "./RepoAvatar";
 import { Sheet } from "./Sheet";
@@ -75,8 +74,6 @@ export function RepoPanel() {
         )}
       </Section>
       )}
-
-      {!local && <ClaudeConnect repo={{ owner: meta.owner, repo: meta.repo, ...(model.ref !== meta.defaultBranch ? { ref: model.ref } : {}) }} />}
 
       <Section title="In this city">
         <dl className="mb-3 grid grid-cols-3 gap-3">

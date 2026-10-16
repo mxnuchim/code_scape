@@ -5,7 +5,7 @@
 ## Positioning
 
 > **CodeScape: understand any codebase, find your way around.**
-> An explorable map of a repository's architecture, where every claim links to the line of code it comes from. It is available in the browser, on your machine, and inside Claude Code.
+> An explorable map of a repository's architecture, where every claim links to the line of code it comes from. It is available in the browser, and on your machine for private code.
 
 Target users, in priority order:
 
@@ -37,7 +37,7 @@ No market sizes or adoption numbers are claimed here; we haven't verified any.
 
 What sets it apart is a combination that none of the tools above offers:
 
-1. **One model for the human and the agent.** Claude's answers through MCP and the 3D map come from the same analysis, use the same ids, and cite the same `path:line`. "Show me" is a link to the same thing Claude just explained.
+1. **One map, shareable to the line.** Every view is a deep link (`?select=…&symbol=…&journey=…`), so "here's how checkout works" is a URL that opens the journey at the right step.
 2. **Grounded, not generated.** Structure comes from a parser and binding resolution, not from an LLM summarising files. Every claim carries a basis (fact, static analysis or heuristic), and journeys show gaps instead of plausible inventions.
 3. **No account, and local when you need it.** Public repositories work from a link with no install. Private code runs entirely on your machine: it reads your working tree, uncommitted changes included, and makes no network calls. MIT licensed.
 4. **Onboarding as a workflow, not a picture.** A reading order with reasons, journeys from entry points to package boundaries, and run and test commands taken from manifests.
@@ -46,8 +46,8 @@ The 3D city is the interface, not the point. It earns its place when the map mak
 
 ## Adoption plan
 
-1. **Make connecting one command.** Every public repository's city shows a `claude mcp add --transport http …` command for the hosted endpoint, so nobody installs anything (shipped 2026-10-15). Publishing an npm package for the local server was dropped on 2026-10-15: private-code users clone the repository instead. Next: list the hosted endpoint in the MCP server registry once it has a permanent domain.
-2. **Show it, don't tell it.** A 60-second recording of "I just joined, how does checkout work?": Claude answers with citations, then the journey plays in the city. Use the screenshots in `docs/images/` as a starting point.
+1. **Make it a link.** The website works for any public repository with no install or account. The Claude Code integration (MCP server and hosted endpoint) was dropped on 2026-10-16 to focus on the website; private-code users clone the repository and run `codescape view`.
+2. **Show it, don't tell it.** A 60-second recording of "I just joined, how does checkout work?": the journey plays in the city, step by step. Use the screenshots in `docs/images/` as a starting point.
 3. **Meet people where they work.** Share examples of real, popular open-source repositories with deep links to their journeys.
 4. **Ask for help where it's easiest.** Language support is the clearest contribution path: one extractor file plus fixture tests per language.
 
@@ -58,7 +58,7 @@ Build only the capabilities whose evidence column turns out to be true.
 | Capability | User problem | Data needed | Prerequisites | Complexity | Evidence that would justify it |
 |---|---|---|---|---|---|
 | More languages (Kotlin, C#, Ruby, PHP; Rust and Java shipped 2026-10-15) | "My repository shows buildings but no edges." | tree-sitter grammars (available) | An extractor and resolver per language | Medium per language | Issues and requests naming a language; the share of analysed repositories in unsupported languages |
-| Change-impact view | "What does this change affect?" | The current index plus a diff | Transitive `get_dependencies` (exists); a diff input | Low–medium | Users ask Claude impact questions; people use depth-2 dependencies |
+| Change-impact view | "What does this change affect?" | The current index plus a diff | Transitive dependency queries (exist in the engine); a diff input | Low–medium | People ask "what breaks if I change this?" |
 | Pull-request visualisation | Reviewers can't see where a PR sits in the architecture. | The PR diff, and the base and head indexes | GitHub API or a local branch diff; index comparison | Medium | Demand from reviewers; the change-impact view gets used |
 | Git history exploration | "Which parts change together, and who knows them?" | `git log` (read via libgit2 or isomorphic-git, never by running repository hooks) | Safe git reading; time-series layout | Medium–high | Requests for "hotspots" or "ownership" |
 | Runtime overlays (OpenTelemetry) | "Which of these paths actually run, and how slow are they?" | OTel traces with code attributes | Mapping spans to symbols; consent and data handling | High | Teams with OTel ask for it. Journeys must stay honest about static versus runtime data. |
@@ -76,7 +76,7 @@ Not built, and not to be built before there is evidence:
 
 **How to validate demand cheaply.** Use no telemetry by default: CodeScape promises that nothing leaves the machine. Instead:
 
-1. Track public signals: GitHub stars, issues, npm downloads once published, and MCP registry installs.
+1. Track public signals: GitHub stars, issues, and links to cities shared in the wild.
 2. Add a "Teams" interest link in the README and the app that leads to a short form (an external page, opt-in).
 3. Interview 10–15 engineers who used CodeScape during onboarding, and ask what they would share with their team.
 4. Build the smallest paid feature (saved journeys in a hosted space) only if at least 3 teams commit to a pilot.

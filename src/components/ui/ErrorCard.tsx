@@ -73,8 +73,7 @@ function copyFor(error: CityError, now: number): Copy {
         body: (
           <>
             {error.message ?? "The local CodeScape server didn’t return an analysis."} Local mode needs the viewer that{" "}
-            <code className="font-mono text-[0.85em]">codescape view --root &lt;folder&gt;</code> (or Claude Code&apos;s{" "}
-            <code className="font-mono text-[0.85em]">open_in_codescape</code>) starts on this machine.
+            <code className="font-mono text-[0.85em]">codescape view --root &lt;folder&gt;</code> starts on this machine.
           </>
         ),
         actions: (

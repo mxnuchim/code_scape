@@ -1,6 +1,6 @@
 # Test fixtures
 
-Small, hand-written repositories used by the analysis, local-workspace and MCP tests. Tests assert exact line numbers in these files, so if you edit one, update the tests that reference it.
+Small, hand-written repositories used by the analysis and local-workspace tests. Tests assert exact line numbers in these files, so if you edit one, update the tests that reference it.
 
 | Fixture | Shape |
 | --- | --- |

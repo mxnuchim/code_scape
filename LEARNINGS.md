@@ -87,3 +87,7 @@ Format: `## YYYY-MM-DD HH:MM TZ — problem` then **Symptom**, **Cause**, **Fix 
 - **Headless SwiftShader on a loaded machine can drop to 0.25 fps.** Time-based e2e checks ("hold W for 900 ms, then expect movement") fail. Count rendered frames with `requestAnimationFrame` while a key is held, and read camera-controls' end state (`_sphericalEnd`, `_targetEnd`) instead of the eased current pose.
 - **After a dialog closes, it fades out with focus still inside.** A shortcut pressed in that window is ignored by `inDialog()`; tests must wait for the dialog to unmount.
 - **A failed Playwright test restarts the worker,** and the next spec's timing-sensitive checks (the library focus test) can then fail too. Fix the first failure before chasing the second.
+
+## 2026-10-16 01:04 WAT — Removing the MCP server
+- **The website's server did no GitHub work outside the hosted MCP route.** GitHub mode runs entirely in the browser, so with MCP gone the deployment needs no `GITHUB_TOKEN`, no rate-limit rule and no outbound network. Each visitor spends their own 60-an-hour anonymous allowance (about 2 requests per city).
+- **Earlier LEARNINGS entries about the MCP SDK, stdio and the hosted endpoint are now history.** They describe code that no longer exists; don't act on them.
