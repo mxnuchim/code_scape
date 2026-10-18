@@ -99,3 +99,8 @@ Format: `## YYYY-MM-DD HH:MM TZ — problem` then **Symptom**, **Cause**, **Fix 
 - **Playwright can't click a pin that is off-screen** after the camera flew in. Return to the overview (H) first.
 - **Turbopack dev occasionally serves a stale CSS chunk** after a file is rewritten by a script. If styles don't match the source, restart the dev server before debugging.
 - **`page.waitForFunction` serialises the function:** pass values as its argument, not through a closure.
+
+## 2026-10-19 00:57 WAT — A Vercel build shipped a stale globals.css
+- **Symptom:** production showed new React components with none of the CSS just added to `src/app/globals.css`. The deployed stylesheet had new Tailwind utilities but the old hand-written rules. A hard refresh didn't help, because the asset itself was wrong.
+- **Likely cause:** Next 16.3+ caches Turbopack build output on disk by default (`turbopackFileSystemCacheForBuild`), Vercel restores `.next/cache` between builds, and this project sends CSS through the `@tailwindcss/turbopack` loader. Not reproducible on macOS. The dev server showed the same stale-CSS behaviour once (see "Wayfinding pitfalls").
+- **Rule:** the build cache is off (next.config.ts), and `pnpm build` runs `scripts/check-build-css.mjs`. When you add a new block of hand-written CSS, add one of its selectors to `REQUIRED` there. To diagnose production styling, fetch the live CSS and grep it before touching the code.
