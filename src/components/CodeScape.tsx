@@ -18,6 +18,8 @@ import { HelpPanel } from "./ui/HelpPanel";
 import { LibraryPanel } from "./ui/LibraryPanel";
 import { GuidePanel } from "./ui/GuidePanel";
 import { JourneyBar } from "./ui/JourneyBar";
+import { ArrivalCard, TourBar } from "./ui/Wayfinding";
+import { endTour, stepTour } from "@/state/wayfinding";
 import { ControlsHint } from "./ui/ControlsHint";
 import { WorldFallback } from "./ui/WorldFallback";
 import { inDialog, isTyping } from "./keyboardFocus";
@@ -57,16 +59,15 @@ export function CodeScape() {
     };
   }, []);
 
-  // Open the guide once per city when its analysis arrives, on screens wide enough
-  // to show it beside the map, unless the URL asked for something specific.
+  // Greet each city once it has risen, unless the URL asked for something specific.
+  // The card works from the file tree alone; the analysis fills it in when it lands.
   useEffect(() => {
-    let openedFor = -1;
+    let greeted = -1;
     return useCity.subscribe((state) => {
-      if (!state.analysis || !state.assembled || state.phase !== "city" || openedFor === state.cityKey) return;
-      openedFor = state.cityKey;
-      if (state.panel || state.selected || state.journey) return;
-      if (window.innerWidth < 1024 || /[?&](select|journey)=/.test(window.location.search)) return;
-      useCity.setState({ panel: "guide" });
+      if (!state.assembled || state.phase !== "city" || greeted === state.cityKey) return;
+      greeted = state.cityKey;
+      if (state.panel || state.selected || state.journey || /[?&](select|journey)=/.test(window.location.search)) return;
+      useCity.setState({ arrivalOpen: true });
     });
   }, []);
 
@@ -84,6 +85,8 @@ export function CodeScape() {
       if (e.key === "Escape") {
         if (s.searchOpen) s.set({ searchOpen: false });
         else if (s.journey) s.playJourney(null);
+        else if (s.tour) endTour();
+        else if (s.arrivalOpen) s.set({ arrivalOpen: false });
         else if (s.panel) s.set({ panel: null });
         else if (s.filtersOpen) s.set({ filtersOpen: false });
         else if (s.selected) s.select(null);
@@ -115,6 +118,10 @@ export function CodeScape() {
         s.stepJourney(1);
       } else if (e.key === "[" && s.journey) {
         s.stepJourney(-1);
+      } else if (e.key === "]" && s.tour) {
+        stepTour(1);
+      } else if (e.key === "[" && s.tour) {
+        stepTour(-1);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -139,6 +146,8 @@ export function CodeScape() {
         {phase === "city" && <RepoPanel />}
         {phase === "city" && <GuidePanel />}
         {phase === "city" && <JourneyBar />}
+        {phase === "city" && assembled && <ArrivalCard />}
+        {phase === "city" && <TourBar />}
         <SearchPalette />
         <HelpPanel />
         <LibraryPanel />

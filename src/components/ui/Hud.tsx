@@ -243,7 +243,8 @@ function GuideButton() {
 export function Hud() {
   const searchOpen = useCity((s) => s.searchOpen);
   const leftPanel = useCity((s) => s.panel === "guide" || s.panel === "repo");
-  const journeyActive = useCity((s) => s.journey !== null);
+  // The journey bar, the welcome card and the tour bar use the same bottom-centre spot (the card shows reading progress itself).
+  const journeyActive = useCity((s) => s.journey !== null || s.arrivalOpen || s.tour !== null);
   return (
     <motion.div
       className="absolute inset-0"

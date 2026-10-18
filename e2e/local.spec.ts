@@ -16,6 +16,7 @@ export async function cityReady(page: Page) {
 test("local repository: the guide explains the project with evidence", async ({ page }) => {
   await page.goto("/local");
   await cityReady(page);
+  await page.keyboard.press("g"); // the city greets with a card; the guide opens on demand
   const guide = page.getByRole("region", { name: "Guide" });
   await expect(guide).toBeVisible();
   await expect(guide.getByRole("heading", { name: "Node.js HTTP service (Express)" })).toBeVisible();
@@ -27,6 +28,7 @@ test("local repository: the guide explains the project with evidence", async ({ 
 test("a code journey can be played, stepped and deep-linked", async ({ page, browser }) => {
   await page.goto("/local");
   await cityReady(page);
+  await page.keyboard.press("g");
   await page.getByRole("region", { name: "Guide" }).getByRole("button", { name: /POST \/users/ }).click();
   const bar = page.getByRole("region", { name: "Journey POST /users" });
   await expect(bar).toContainText("1 / 5");
@@ -52,18 +54,23 @@ test("a code journey can be played, stepped and deep-linked", async ({ page, bro
 });
 
 test("Escape leaves a journey", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/local?journey=http-get-users-id-1duqz");
   await cityReady(page);
   const bar = page.getByRole("region", { name: "Journey GET /users/:id" });
   await expect(bar).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(bar).toHaveCount(0);
+  // A crashed page has no bar either: check the city is still there.
+  await expect(page.getByRole("button", { name: "Search files and folders" }).first()).toBeVisible();
+  expect(errors).toEqual([]);
 });
 
 test("search finds declarations and shows their source with line numbers", async ({ page }) => {
   await page.goto("/local");
   await cityReady(page);
-  await page.keyboard.press("Escape"); // close the guide
+  await page.keyboard.press("Escape"); // close the welcome card
   await page.getByRole("button", { name: "Search files and folders" }).first().click();
   await page.getByRole("combobox").fill("findUser");
   await expect(page.getByRole("option").first()).toContainText("Database.findUser");
@@ -79,6 +86,7 @@ test("search finds declarations and shows their source with line numbers", async
 test("the file tree reaches any file from the keyboard", async ({ page }) => {
   await page.goto("/local");
   await cityReady(page);
+  await page.keyboard.press("g");
   const guide = page.getByRole("region", { name: /Guide/ });
   await guide.getByRole("tab", { name: "Files" }).click();
   const tree = page.getByRole("tree", { name: "Files and folders" });

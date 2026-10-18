@@ -74,6 +74,10 @@ interface CityState {
   journey: JourneyFocus | null;
   /** A declaration selected inside the selected building (symbol id). */
   symbol: string | null;
+  /** The "Start here" tour: which numbered stop is in focus (0-based). */
+  tour: { step: number } | null;
+  /** The card that greets a newly opened city. */
+  arrivalOpen: boolean;
 
   hovered: Target | null;
   selected: Target | null;
@@ -127,6 +131,8 @@ export const useCity = create<CityState>((set, get) => ({
   analysis: null,
   journey: null,
   symbol: null,
+  tour: null,
+  arrivalOpen: false,
 
   hovered: null,
   selected: null,
@@ -201,7 +207,8 @@ export const useCity = create<CityState>((set, get) => ({
     const clamped = Math.max(0, Math.min(step, journey.steps.length - 1));
     // On narrower screens the guide gives way so the journey and inspector both fit.
     const narrow = typeof window !== "undefined" && window.innerWidth < 1280;
-    set({ journey: { journey, step: clamped }, transit: false, ...(narrow && get().panel === "guide" ? { panel: null } : {}) });
+    // A journey takes over from the tour and the welcome card.
+    set({ journey: { journey, step: clamped }, transit: false, tour: null, arrivalOpen: false, ...(narrow && get().panel === "guide" ? { panel: null } : {}) });
     focusJourneyStep(journey, clamped);
   },
 
@@ -259,6 +266,8 @@ export function resetCityState(): Partial<CityState> {
     analysis: null,
     journey: null,
     symbol: null,
+    tour: null,
+    arrivalOpen: false,
   };
 }
 

@@ -91,3 +91,11 @@ Format: `## YYYY-MM-DD HH:MM TZ — problem` then **Symptom**, **Cause**, **Fix 
 ## 2026-10-16 01:04 WAT — Removing the MCP server
 - **The website's server did no GitHub work outside the hosted MCP route.** GitHub mode runs entirely in the browser, so with MCP gone the deployment needs no `GITHUB_TOKEN`, no rate-limit rule and no outbound network. Each visitor spends their own 60-an-hour anonymous allowance (about 2 requests per city).
 - **Earlier LEARNINGS entries about the MCP SDK, stdio and the hosted endpoint are now history.** They describe code that no longer exists; don't act on them.
+
+## 2026-10-18 23:24 WAT — Wayfinding pitfalls
+- **AnimatePresence keeps a component mounted after its store value is cleared.** A child that does `useCity(s => s.journey)!` crashes the page mid-exit. Keep the last value in state (`live ?? shown`) or return null. And never let "the bar is gone" be the only assertion after closing: a crashed page passes it too, so also assert on `pageerror` and on something that should still be there.
+- **Labels over a 3D scene need screen-space layout,** not world offsets: project anchors with `vector.project(camera)`, place boxes greedily in priority order, and write CSS variables directly (no React state per frame).
+- **The global reduced-motion rule (`transition-duration: 1ms !important` on `*`) makes `visibility` transition too,** and on a slow renderer the computed value lags. Hide with a class whose rules are `!important`.
+- **Playwright can't click a pin that is off-screen** after the camera flew in. Return to the overview (H) first.
+- **Turbopack dev occasionally serves a stale CSS chunk** after a file is rewritten by a script. If styles don't match the source, restart the dev server before debugging.
+- **`page.waitForFunction` serialises the function:** pass values as its argument, not through a closure.

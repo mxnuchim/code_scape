@@ -288,6 +288,177 @@ body {
   letter-spacing: 0.04em;
 }
 
+/* ---------- Wayfinding (Start here pins, district signs, trailheads) ---------- */
+
+/* Pins stand on a stem whose foot is the building's roof (the Html anchor). */
+.wf-pin,
+.wf-trail {
+  position: relative;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  transform: translate(-50%, -100%);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  animation: wf-rise 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(250ms + var(--i, 0) * 90ms);
+}
+@keyframes wf-rise {
+  from {
+    opacity: 0;
+    translate: 0 10px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+.wf-stem {
+  width: 1.5px;
+  height: var(--stem, 30px);
+  transition: height 220ms ease-out;
+  background: linear-gradient(to top, rgba(245, 165, 36, 0), rgba(245, 165, 36, 0.85));
+}
+.wf-pin-tag {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 3px 9px 3px 3px;
+  border-radius: 999px;
+  background: rgba(13, 15, 18, 0.92);
+  border: 1px solid rgba(245, 165, 36, 0.45);
+  box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.7);
+  white-space: nowrap;
+  transition: border-color 140ms, box-shadow 140ms;
+}
+.wf-pin-num {
+  display: grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #1a1206;
+  font: 700 11px/1 var(--font-geist-mono), ui-monospace, monospace;
+}
+.wf-pin-title {
+  color: var(--ink);
+  font: 600 11.5px/1.3 var(--font-geist-mono), ui-monospace, monospace;
+}
+.wf-pin:hover .wf-pin-tag,
+.wf-pin:focus-visible .wf-pin-tag {
+  border-color: var(--accent);
+}
+.wf-pin.is-current .wf-pin-tag {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(245, 165, 36, 0.22), 0 8px 20px -8px rgba(0, 0, 0, 0.7);
+}
+/* Guessed from a name, not confirmed by code: a dashed badge. */
+.wf-pin.is-heuristic .wf-pin-num {
+  background: rgba(13, 15, 18, 0.92);
+  color: var(--accent);
+  outline: 1.5px dashed var(--accent);
+  outline-offset: -1.5px;
+}
+.wf-pin.is-compact .wf-pin-tag {
+  padding: 3px;
+}
+/* Folded in a tight cluster: just the number until hovered or focused. */
+.wf-pin[data-folded="1"]:not(:hover):not(:focus-visible):not(.is-current) .wf-pin-title,
+.wf-trail[data-folded="1"]:not(:hover):not(:focus-visible) .wf-trail-title,
+.wf-trail[data-folded="1"]:not(:hover):not(:focus-visible) .wf-trail-more {
+  display: none;
+}
+.wf-pin[data-folded="1"]:not(:hover):not(:focus-visible):not(.is-current) .wf-pin-tag {
+  padding: 3px;
+}
+.wf-pin:hover,
+.wf-trail:hover {
+  z-index: 1;
+}
+
+/* Trailheads: where a journey starts. Violet, like journeys; set beside a Start-here pin on the same roof. */
+.wf-trail .wf-stem {
+  background: linear-gradient(to top, rgba(157, 140, 255, 0), rgba(157, 140, 255, 0.85));
+}
+.wf-trail-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(20, 18, 38, 0.9);
+  border: 1px solid rgba(157, 140, 255, 0.55);
+  color: #d9d3ff;
+  font: 600 10.5px/1.5 var(--font-geist-mono), ui-monospace, monospace;
+  white-space: nowrap;
+  box-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.7);
+}
+.wf-trail:hover .wf-trail-pill,
+.wf-trail:focus-visible .wf-trail-pill {
+  background: #9d8cff;
+  color: #120f24;
+}
+.wf-trail-more {
+  color: rgba(217, 211, 255, 0.6);
+}
+.wf-trail.is-compact .wf-trail-pill {
+  padding: 2px 6px;
+}
+
+/* District signs: what a folder seems to be for, standing at its front edge. */
+.wf-district {
+  transform: translate(-50%, 0);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 4px 10px 5px;
+  border-radius: 6px;
+  background: rgba(13, 15, 18, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(4px);
+  white-space: nowrap;
+  cursor: pointer;
+  animation: wf-fade 500ms ease-out both;
+  animation-delay: calc(150ms + var(--i, 0) * 70ms);
+}
+@keyframes wf-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.wf-district.is-heuristic {
+  border-style: dashed;
+}
+/* Would cover a bigger district's sign: wait until the camera comes closer. Beats the fade-in animation and transitions. */
+.wf-district.is-crowded {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  transition: none !important;
+  pointer-events: none;
+}
+.wf-district:hover,
+.wf-district:focus-visible,
+.wf-district.is-selected {
+  border-color: var(--accent);
+}
+.wf-district-name {
+  color: var(--ink-faint);
+  font: 500 9.5px/1.3 var(--font-geist-mono), ui-monospace, monospace;
+  letter-spacing: 0.02em;
+}
+.wf-district-role {
+  color: var(--ink);
+  font: 600 11.5px/1.25 var(--font-geist), system-ui, sans-serif;
+}
+
 .flow-chip {
   padding: 0.15rem 0.45rem;
   border-radius: 4px;

@@ -10,6 +10,7 @@ import { Trees } from "./Trees";
 import { Beacon, GroundRing, HoverLabel, PlateHoverLabel } from "./Markers";
 import { SelectionArcs, TransitFlows, relationsFor } from "./Connections";
 import { JourneyPath, journeyBuildings } from "./JourneyPath";
+import { WayfindingLayer } from "./Wayfinding";
 import { WORLD } from "@/theme/palette";
 import { CITY_STYLES } from "@/theme/cityStyles";
 import { styleLayout } from "@/lib/layout/styleHeights";
@@ -155,6 +156,7 @@ export function City({ model, layout: baseLayout, leaving, onLeft }: CityProps) 
           <Beacon building={selectedBuilding} reducedMotion={reducedMotion} />
         </>
       )}
+      {!leaving && <WayfindingLayer layout={layout} />}
       {!leaving && journey && <JourneyPath model={model} layout={layout} journey={journey.journey} step={journey.step} />}
       {!leaving && !journey && graph && selectedBuilding && <SelectionArcs model={model} layout={layout} graph={graph} selectedId={selectedBuilding.id} />}
       {!leaving && !journey && graph && transit && !selectedBuilding && <TransitFlows model={model} layout={layout} graph={graph} />}

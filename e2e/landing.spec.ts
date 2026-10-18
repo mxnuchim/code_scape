@@ -18,7 +18,7 @@ test("respects reduced motion: the city is ready almost immediately", async ({ p
   });
   expect(await page.evaluate(() => (window as unknown as { __codescape: { getState(): { reducedMotion: boolean } } }).__codescape.getState().reducedMotion)).toBe(true);
   expect(Date.now() - started).toBeLessThan(30_000);
-  await expect(page.getByRole("region", { name: "Guide" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "About ts-express-api" })).toBeVisible();
 });
 
 test("the repository library opens, searches and closes", async ({ page }) => {

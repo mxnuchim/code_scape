@@ -67,7 +67,7 @@ test("a city opens on a low three-quarter aerial view, and the keyboard flies ar
   test.setTimeout(240_000);
   await page.goto("/local");
   await cityReady(page);
-  await page.keyboard.press("Escape"); // close the guide
+  await page.keyboard.press("Escape"); // close the welcome card
   await frames(page, 2);
   const opening = await pose(page);
   // About 22° above the horizon, looking in from a corner (between +X and +Z).

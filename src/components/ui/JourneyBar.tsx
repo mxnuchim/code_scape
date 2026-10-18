@@ -1,6 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
+import { useState } from "react";
 import { useCity } from "@/state/store";
 import { LocLink } from "./Evidence";
 import { IconAlert, IconChevron, IconClose, IconRoute } from "./icons";
@@ -30,7 +31,12 @@ export function JourneyBar() {
 }
 
 function JourneyControls() {
-  const focus = useCity((s) => s.journey)!;
+  // Keep the last step while the bar animates out: the journey is already cleared by then.
+  const live = useCity((s) => s.journey);
+  const [shown, setShown] = useState(live);
+  if (live && live !== shown) setShown(live);
+  const focus = live ?? shown;
+  if (!focus) return null;
   const { journey, step } = focus;
   const current = journey.steps[step];
   const gaps = journey.gaps.filter((g) => g.atStep === step);
